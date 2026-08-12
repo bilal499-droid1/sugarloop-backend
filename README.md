@@ -3,9 +3,10 @@
 Ordering API for Sugarloop — a Cash-on-Delivery donut shop with four branches in
 Islamabad. Node + Express + Mongoose + Zod on MongoDB, MVC layout, REST at `/api/v1`.
 
-**Status: Sprint 1, roughly 40% complete.** The catalogue, branches, opening-hours engine
-and staff authentication work end to end. **Orders cannot be placed yet** — the pricing
-engine and order model are the next pieces. See [Roadmap](#roadmap).
+**Status: Sprint 1, roughly 55% complete.** The catalogue, branches, opening-hours engine,
+server-side pricing and staff authentication work end to end. A cart can be priced;
+**an order cannot yet be placed** — the order model and numbering are next. See
+[Roadmap](#roadmap).
 
 ---
 
@@ -110,7 +111,28 @@ GET  /products/:slug
 
 GET  /branches                       + isOpenNow, isAcceptingOrders, computed server-side
 GET  /branches/:code                 DHA1 · DHA2 · BAH4 · NUST
+
+POST /checkout/quote                 prices a cart — the server, never the browser
 ```
+
+`POST /checkout/quote` takes ids and quantities only:
+
+```json
+{
+  "fulfilment": "delivery",
+  "location": { "lat": 33.5312, "lng": 73.1574 },
+  "items": [
+    { "kind": "product", "productId": "...", "qty": 2 },
+    { "kind": "box", "boxSize": 4, "productIds": ["...", "...", "...", "..."] }
+  ]
+}
+```
+
+For `pickup`, send `branchCode` (or `branchId`) instead of `location` — the customer
+chooses the branch. It returns the branch, per-line totals with a tax breakdown, and the
+grand total. It rejects with `MINIMUM_ORDER_NOT_MET`, `ITEMS_UNAVAILABLE`,
+`OUTSIDE_DELIVERY_AREA`, `BRANCH_NOT_ACCEPTING_ORDERS` or `INVALID_BOX`, each carrying the
+detail a UI needs to explain itself.
 
 ### Staff — `Authorization: Bearer <accessToken>`
 
@@ -212,8 +234,8 @@ the expensive migration this design exists to avoid.
 | 2 Models + seed | ✅ |
 | 3 Catalogue endpoints | ✅ |
 | 4 Hours engine | ✅ |
-| **5 Pricing engine** | ❌ **next — the core** |
-| 6 Orders + numbering | ❌ |
+| 5 Pricing engine | ✅ |
+| **6 Orders + numbering** | ❌ **next** |
 | 7 Staff auth + RBAC | ✅ built ahead of order |
 | 8 Order status + stock toggles | ❌ |
 | 9 Geocoding + branch assignment | ❌ unblocked — real coordinates are in |

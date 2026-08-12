@@ -253,6 +253,203 @@ http://localhost:4000/api/v1/products/lotus?branchId=6a7c2fbe9758de53ab6f5b92
 
 ---
 
+# 3b · Checkout — pricing a cart
+
+**No auth needed.** The server prices everything; the cart only sends ids and quantities.
+
+Product ids below are from your current database — get fresh ones from `GET /products`.
+```
+kitkat-crunch   6a7c2fbe9758de53ab6f5ba7   Rs 429
+lotus           6a7c2fbe9758de53ab6f5b96   Rs 299
+classic-oreo    6a7c2fbe9758de53ab6f5b9e   Rs 185
+```
+
+### 3b.1 Delivery quote
+```
+POST
+http://localhost:4000/api/v1/checkout/quote
+```
+**Headers**
+```
+Content-Type: application/json
+```
+**Body**
+```json
+{
+  "fulfilment": "delivery",
+  "location": { "lat": 33.5312, "lng": 73.1574 },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ]
+}
+```
+→ assigned to **DHA2** (0.01 km away), subtotal Rs 858 + Rs 100 delivery = **Rs 958**.
+
+### 3b.2 Pickup — no delivery fee
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA1",
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ]
+}
+```
+→ **Rs 858**, no fee. For pickup the customer names the branch.
+
+### 3b.3 The important one — post a fake price
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2, "price": 1, "lineTotal": 2 }
+  ]
+}
+```
+→ still **Rs 858**. The `price` and `lineTotal` you sent are stripped by the validator and
+never read. This is the single rule the pricing engine exists to enforce.
+
+### 3b.4 Build Your Box — 4 Crafted donuts
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": [
+    {
+      "kind": "box",
+      "boxSize": 4,
+      "productIds": [
+        "6a7c2fbe9758de53ab6f5ba7",
+        "6a7c2fbe9758de53ab6f5ba7",
+        "6a7c2fbe9758de53ab6f5ba7",
+        "6a7c2fbe9758de53ab6f5ba7"
+      ]
+    }
+  ]
+}
+```
+→ **Rs 1,716** (171600 paisa). Duplicates allowed; price is the plain sum of contents.
+
+### 3b.5 Mixed box — different categories, with duplicates
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": [
+    {
+      "kind": "box",
+      "boxSize": 4,
+      "productIds": [
+        "6a7c2fbe9758de53ab6f5ba7",
+        "6a7c2fbe9758de53ab6f5b96",
+        "6a7c2fbe9758de53ab6f5b9e",
+        "6a7c2fbe9758de53ab6f5b96"
+      ]
+    }
+  ]
+}
+```
+→ **Rs 1,212**. Mixing categories is allowed.
+
+### 3b.6 Products and a box in one cart
+```json
+{
+  "fulfilment": "delivery",
+  "location": { "lat": 33.5312, "lng": 73.1574 },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5b96", "qty": 3 },
+    { "kind": "box", "boxSize": 2, "productIds": ["6a7c2fbe9758de53ab6f5ba7", "6a7c2fbe9758de53ab6f5b9e"] }
+  ]
+}
+```
+
+### 3b.7 Below the Rs 500 minimum → 409
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5b9e", "qty": 2 }
+  ]
+}
+```
+→ `MINIMUM_ORDER_NOT_MET` with `"shortfall": 13000` — Rs 130 more needed. The minimum is
+judged on the **subtotal**, so the Rs 100 delivery fee never counts towards it.
+
+### 3b.8 Outside every delivery radius → 409
+```json
+{
+  "fulfilment": "delivery",
+  "location": { "lat": 33.7104, "lng": 73.0551 },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ]
+}
+```
+→ `OUTSIDE_DELIVERY_AREA`, and it tells you the nearest branch is 8.93 km away against a
+2 km radius. Blue Area is outside all four circles.
+
+### 3b.9 Box with the wrong number of items → 422
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": [
+    { "kind": "box", "boxSize": 4, "productIds": ["6a7c2fbe9758de53ab6f5ba7", "6a7c2fbe9758de53ab6f5b96"] }
+  ]
+}
+```
+→ a box of 4 must hold exactly 4.
+
+### 3b.10 Delivery with no coordinates → 422
+```json
+{
+  "fulfilment": "delivery",
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ]
+}
+```
+
+### 3b.11 Empty cart → 422
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": []
+}
+```
+
+### Coordinates worth trying
+
+| Where | lat, lng | Result |
+|---|---|---|
+| Nadir Arcade, DHA 2 | `33.5312, 73.1574` | DHA2, 0.01 km |
+| Marina Commercial, Bahria 4 | `33.5466, 73.1233` | BAH4, 0.00 km |
+| NUST H-12 campus | `33.6455, 72.9980` | NUST, 0.08 km |
+| Between DHA1 and DHA2 | `33.5414, 73.1250` | BAH4, 0.60 km — it bridges the gap |
+| Blue Area | `33.7104, 73.0551` | refused, 8.93 km |
+| Bahria Phase 7 | `33.5200, 73.0900` | refused, 3.52 km |
+
+### Checking sold-out behaviour
+
+Mark something out of stock at one branch, then quote against both:
+
+```bash
+# in mongosh
+db.branchstocks.updateOne(
+  { branchId: ObjectId("6a7c2fbe9758de53ab6f5b92"), productId: ObjectId("6a7c2fbe9758de53ab6f5ba7") },
+  { $set: { inStock: false } }
+)
+```
+
+Quoting at **DHA2** now returns `ITEMS_UNAVAILABLE` — *"KitKat Crunch sold out at Sugar
+Loop DHA 2"*, by name. The same cart at **DHA1** still prices normally. Set it back to
+`true` when you're done.
+
+---
+
 # 4 · Staff login
 
 ### 4.1 Log in as admin  ← run before anything in §5, §6
@@ -635,7 +832,6 @@ Still returns the JSON error envelope, never an HTML error page.
 # 7 · Not built yet — every one of these returns 404
 
 ```
-POST  http://localhost:4000/api/v1/checkout/quote
 POST  http://localhost:4000/api/v1/orders
 GET   http://localhost:4000/api/v1/orders
 POST  http://localhost:4000/api/v1/auth/otp/request

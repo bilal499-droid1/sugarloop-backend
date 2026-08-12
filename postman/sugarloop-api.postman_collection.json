@@ -431,6 +431,311 @@
       ]
     },
     {
+      "name": "2b · Checkout quote",
+      "item": [
+        {
+          "name": "Collect product ids",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const products = pm.response.json().data",
+                  "const bySlug = (slug) => products.find(p => p.slug === slug).id",
+                  "pm.collectionVariables.set('kitkatId', bySlug('kitkat-crunch'))",
+                  "pm.collectionVariables.set('lotusId', bySlug('lotus'))",
+                  "pm.collectionVariables.set('oreoId', bySlug('classic-oreo'))"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products" }
+        },
+        {
+          "name": "Delivery quote — server prices it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const q = pm.response.json().data.quote",
+                  "pm.test('assigned to the nearest covering branch', () => pm.expect(q.branch.code).to.eql('DHA2'))",
+                  "pm.test('2 x Rs 429 = Rs 858', () => pm.expect(q.totals.subtotal.amount).to.eql(85800))",
+                  "pm.test('Rs 100 delivery fee', () => pm.expect(q.totals.deliveryFee.amount).to.eql(10000))",
+                  "pm.test('grand total Rs 958', () => pm.expect(q.totals.grandTotal.amount).to.eql(95800))",
+                  "pm.test('totals reconcile against the lines', () => {",
+                  "  const lines = q.items.reduce((t, i) => t + i.lineTotal.amount, 0)",
+                  "  pm.expect(q.totals.subtotal.amount).to.eql(lines)",
+                  "  pm.expect(q.totals.grandTotal.amount).to.eql(q.totals.subtotal.amount + q.totals.deliveryFee.amount - q.totals.discount.amount)",
+                  "})",
+                  "pm.test('every amount is integer paisa', () => {",
+                  "  Object.values(q.totals).forEach(m => pm.expect(Number.isInteger(m.amount)).to.be.true)",
+                  "})",
+                  "pm.test('carries a per-line tax breakdown at 0%', () => {",
+                  "  q.items.forEach(i => { pm.expect(i.tax.rate).to.eql(0); pm.expect(i.tax.amount).to.eql(0) })",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "A price posted by the client is ignored",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const q = pm.response.json().data.quote",
+                  "// The cart claims each donut costs 1 paisa. The server must not care.",
+                  "pm.test('priced from the database, not the request', () => {",
+                  "  pm.expect(q.items[0].unitPrice.amount).to.eql(42900)",
+                  "  pm.expect(q.totals.subtotal.amount).to.eql(85800)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2, \"price\": 1, \"lineTotal\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Pickup — no delivery fee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const q = pm.response.json().data.quote",
+                  "pm.test('no delivery fee', () => pm.expect(q.totals.deliveryFee.amount).to.eql(0))",
+                  "pm.test('customer chose the branch', () => pm.expect(q.branch.code).to.eql('DHA1'))",
+                  "pm.test('no distance — they are coming to the shop', () => pm.expect(q.branch.distanceKm).to.be.undefined)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA1\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "A 4-box of Crafted prices to 171600 paisa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const q = pm.response.json().data.quote",
+                  "pm.test('171600 paisa', () => pm.expect(q.totals.subtotal.amount).to.eql(171600))",
+                  "pm.test('contents itemised, duplicates kept', () => {",
+                  "  pm.expect(q.items[0].children.length).to.eql(4)",
+                  "})",
+                  "pm.test('box price is the plain sum of its contents', () => {",
+                  "  const sum = q.items[0].children.reduce((t, c) => t + c.unitPrice.amount, 0)",
+                  "  pm.expect(q.items[0].lineTotal.amount).to.eql(sum)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    {\n      \"kind\": \"box\",\n      \"boxSize\": 4,\n      \"productIds\": [\"{{kitkatId}}\", \"{{kitkatId}}\", \"{{kitkatId}}\", \"{{kitkatId}}\"]\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Mixed-category box is allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The frontend currently forbids mixing; that rule is being removed, so the",
+                  "// server must not re-impose it.",
+                  "pm.test('200', () => pm.response.to.have.status(200))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    {\n      \"kind\": \"box\",\n      \"boxSize\": 4,\n      \"productIds\": [\"{{kitkatId}}\", \"{{lotusId}}\", \"{{oreoId}}\", \"{{lotusId}}\"]\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Below the Rs 500 minimum → 409 with the shortfall",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('MINIMUM_ORDER_NOT_MET', () => pm.expect(e.code).to.eql('MINIMUM_ORDER_NOT_MET'))",
+                  "pm.test('says exactly how much more is needed', () => {",
+                  "  pm.expect(e.details.subtotal).to.eql(37000)",
+                  "  pm.expect(e.details.shortfall).to.eql(13000)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{oreoId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Outside every delivery radius → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('OUTSIDE_DELIVERY_AREA', () => pm.expect(e.code).to.eql('OUTSIDE_DELIVERY_AREA'))",
+                  "pm.test('reports how far the nearest branch actually is', () => {",
+                  "  pm.expect(e.details.distanceKm).to.be.a('number')",
+                  "  pm.expect(e.details.distanceKm).to.be.greaterThan(e.details.deliveryRadiusKm)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.7104, \"lng\": 73.0551 },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Box with the wrong number of items → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    { \"kind\": \"box\", \"boxSize\": 4, \"productIds\": [\"{{kitkatId}}\", \"{{lotusId}}\"] }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Delivery without coordinates → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('names the missing field', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error.details)).to.include('location')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Empty cart → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('422', () => pm.response.to.have.status(422))"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": []\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        }
+      ]
+    },
+    {
       "name": "3 · Staff auth",
       "item": [
         {
@@ -1048,9 +1353,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Documents the boundary of Sprint 1. When Step 5 lands, this test flips",
-                  "// to failing — which is the reminder to update the collection.",
-                  "pm.test('POST /checkout/quote is not implemented yet', () => pm.response.to.have.status(404))"
+                  "// Documents the boundary of what is built. When orders land, this flips to",
+                  "// failing — which is the reminder to extend this collection.",
+                  "pm.test('POST /orders is not implemented yet', () => pm.response.to.have.status(404))"
                 ]
               }
             }
@@ -1058,8 +1363,8 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"items\": []\n}" },
-            "url": "{{baseUrl}}/checkout/quote"
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{baseUrl}}/orders"
           }
         }
       ]
