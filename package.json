@@ -1,0 +1,42 @@
+{
+  "name": "sugarloop-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sugarloop ordering API — catalogue, server-side pricing, COD orders, staff dashboard.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "lint": "eslint src",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "test:api": "newman run postman/sugarloop-api.postman_collection.json",
+    "check": "npm run lint && npm run test"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.18.0",
+    "globals": "^17.9.0",
+    "pino-pretty": "^13.0.0"
+  }
+}

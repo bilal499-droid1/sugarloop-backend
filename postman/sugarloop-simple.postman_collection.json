@@ -1,0 +1,264 @@
+{
+  "info": {
+    "_postman_id": "d1a2b3c4-1111-4222-8333-444455556666",
+    "name": "Sugarloop API — Simple",
+    "description": "Plain requests for clicking through by hand. No test scripts except two tiny ones that save the login token and the branch id, so you don't have to copy-paste them.\n\nStart here: Login, then List branches, then everything else works.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health/live", "description": "Is the process up? Never touches the database." }
+        },
+        {
+          "name": "Readiness",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health/ready", "description": "Is the database connected? Returns 503 if not." }
+        }
+      ]
+    },
+    {
+      "name": "Branches",
+      "item": [
+        {
+          "name": "List branches  ← RUN THIS SECOND",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saves the first branch so other requests can use {{branchId}}.",
+                  "const b = pm.response.json().data[0]",
+                  "pm.collectionVariables.set('branchId', b.id)",
+                  "pm.collectionVariables.set('branchCode', b.code)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches",
+            "description": "All 4 branches. Look at isOpenNow vs isAcceptingOrders — at 02:31 the first is true and the second is false."
+          }
+        },
+        {
+          "name": "Get one branch",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches/{{branchCode}}", "description": "By code: DHA1, DHA2, DHA4, DHA5." }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "All products",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products", "description": "The whole menu — 43 items. Prices are integer paisa: 29900 = Rs 299." }
+        },
+        {
+          "name": "By category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?category=Donuts",
+            "description": "Donuts 19, Croissants 4, Sandwiches 3, Drinks 17. Edit the param in the Params tab."
+          }
+        },
+        {
+          "name": "By type",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?type=Crafted Donuts",
+            "description": "Signature, Classic, Crafted Donuts, Fresh Bakes, Sandwiches, Hot Coffee, Iced Coffee, Blended Iced, Chillers, Extras."
+          }
+        },
+        {
+          "name": "Box-eligible only",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?boxEligible=true", "description": "23 items — donuts and croissants. What Build Your Box can contain." }
+        },
+        {
+          "name": "With stock for a branch",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?branchId={{branchId}}",
+            "description": "Same menu, but every item now has inStock for that branch. Without branchId the field is absent entirely."
+          }
+        },
+        {
+          "name": "One product",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/lotus", "description": "By slug. Try: chocoholic, kitkat-crunch, butter-croissant, mocha-frappe, water." }
+        }
+      ]
+    },
+    {
+      "name": "Staff auth",
+      "item": [
+        {
+          "name": "Login  ← RUN THIS FIRST",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saves the access token so the other requests can use {{accessToken}}.",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('accessToken', pm.response.json().data.accessToken)",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@sugarloop.pk\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+            "url": "{{baseUrl}}/staff/auth/login",
+            "description": "Set adminPassword in the environment first. Try dha1.manager@sugarloop.pk to see the branch-manager role."
+          }
+        },
+        {
+          "name": "Who am I",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/staff/auth/me",
+            "description": "Whoever the current token belongs to."
+          }
+        },
+        {
+          "name": "Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('accessToken', pm.response.json().data.accessToken)",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{baseUrl}}/staff/auth/refresh",
+            "description": "Access tokens last 15 minutes. This mints a new one using the httpOnly cookie Postman is holding."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{baseUrl}}/staff/auth/logout",
+            "description": "204 No Content. Refresh stops working after this."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff users (admin only)",
+      "item": [
+        {
+          "name": "List staff",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/staff/users",
+            "description": "The 5 seeded accounts. Log in as a branch manager instead and this returns 403."
+          }
+        },
+        {
+          "name": "Create staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('staffId', pm.response.json().data.staffUser.id)",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Manager\",\n  \"email\": \"test.manager@sugarloop.pk\",\n  \"password\": \"TestPassword123!\",\n  \"role\": \"branch_manager\",\n  \"branchId\": \"{{branchId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/users",
+            "description": "Change the email each time — a second run with the same one returns 409. Password must be 12+ characters."
+          }
+        },
+        {
+          "name": "Get staff member",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/staff/users/{{staffId}}",
+            "description": "Uses the id saved by Create staff."
+          }
+        },
+        {
+          "name": "Update staff member",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Renamed Manager\"\n}" },
+            "url": "{{baseUrl}}/staff/users/{{staffId}}",
+            "description": "Send at least one field — an empty {} returns 422."
+          }
+        },
+        {
+          "name": "Reset their password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"password\": \"BrandNewPassword123!\"\n}" },
+            "url": "{{baseUrl}}/staff/users/{{staffId}}/password"
+          }
+        },
+        {
+          "name": "Deactivate staff member",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/staff/users/{{staffId}}",
+            "description": "Soft delete — sets isActive false, keeps the row so the audit trail still resolves."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:4000/api/v1" },
+    { "key": "adminPassword", "value": "CHANGE-ME" },
+    { "key": "accessToken", "value": "" },
+    { "key": "branchId", "value": "" },
+    { "key": "branchCode", "value": "DHA1" },
+    { "key": "staffId", "value": "" }
+  ]
+}

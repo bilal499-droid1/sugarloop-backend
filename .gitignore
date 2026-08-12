@@ -1,0 +1,23 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+logs/
+*.log
+npm-debug.log*
+
+coverage/
+dist/
+tmp/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Client planning material — pricing decisions, timeline discussions, cost estimates,
+# and third-party account ownership notes. This repository is PUBLIC, so these stay
+# local. They remain on disk and are still the reference for what was agreed; they are
+# simply not published. Remove this rule if the repository is ever made private.
+docs/
