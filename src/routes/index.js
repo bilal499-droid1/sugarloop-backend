@@ -4,6 +4,7 @@ import staffRoutes from './staff.routes.js'
 import productRoutes from './product.routes.js'
 import branchRoutes from './branch.routes.js'
 import checkoutRoutes from './checkout.routes.js'
+import orderRoutes from './order.routes.js'
 
 const router = Router()
 
@@ -12,9 +13,11 @@ router.use('/staff', staffRoutes)
 router.use('/products', productRoutes)
 router.use('/branches', branchRoutes)
 router.use('/checkout', checkoutRoutes)
+router.use('/orders', orderRoutes)
 
-// Sprint 1 mounts these as they land:
-//   router.use('/orders',   orderRoutes)       // days 9-10
+// Sprint 2 mounts these as they land:
+//   router.use('/auth',      customerAuthRoutes)   // phone OTP
+//   router.use('/enquiries', enquiryRoutes)
 
 router.get('/', (_req, res) => {
   res.json({

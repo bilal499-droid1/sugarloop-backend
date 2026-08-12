@@ -451,6 +451,155 @@ Loop DHA 2"*, by name. The same cart at **DHA1** still prices normally. Set it b
 
 ---
 
+# 3c · Placing an order
+
+Two steps, always. Quote first, then send the total you were shown back with the order —
+the server re-prices from scratch and **rejects** if anything moved, rather than silently
+charging a different number.
+
+### 3c.1 Get a quote and note `grandTotal.amount`
+```
+POST
+http://localhost:4000/api/v1/checkout/quote
+```
+```json
+{
+  "fulfilment": "delivery",
+  "location": { "lat": 33.5312, "lng": 73.1574 },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ]
+}
+```
+→ `grandTotal.amount` is **95800**. That is your `expectedTotal` below.
+
+### 3c.2 Place it
+```
+POST
+http://localhost:4000/api/v1/orders
+```
+**Headers**
+```
+Content-Type: application/json
+```
+**Body**
+```json
+{
+  "fulfilment": "delivery",
+  "location": { "lat": 33.5312, "lng": 73.1574 },
+  "address": {
+    "line1": "House 12, Street 4",
+    "area": "Sector E",
+    "notes": "Blue gate"
+  },
+  "contact": {
+    "name": "Ayesha Khan",
+    "phone": "03001234567"
+  },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ],
+  "expectedTotal": 95800
+}
+```
+→ `201` with an order number like **`SL-260812-0001`**. Copy it.
+
+The phone comes back as `+923001234567` — `03001234567`, `+92 300 1234567` and
+`0300-1234567` all normalise to the same stored value.
+
+### 3c.3 Pickup order — no address, no delivery fee
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "contact": { "name": "Ayesha Khan", "phone": "03001234567" },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ],
+  "expectedTotal": 85800
+}
+```
+
+### 3c.4 Order a box
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "contact": { "name": "Ayesha Khan", "phone": "03001234567" },
+  "items": [
+    {
+      "kind": "box",
+      "boxSize": 4,
+      "productIds": [
+        "6a7c2fbe9758de53ab6f5ba7",
+        "6a7c2fbe9758de53ab6f5b96",
+        "6a7c2fbe9758de53ab6f5b9e",
+        "6a7c2fbe9758de53ab6f5b96"
+      ]
+    }
+  ],
+  "expectedTotal": 121200
+}
+```
+The order stores what was in the box, not just the total — otherwise a reorder is
+impossible.
+
+### 3c.5 Look it up — needs the phone it was placed with
+```
+GET
+http://localhost:4000/api/v1/orders/SL-260812-0001?phone=03001234567
+```
+
+### 3c.6 Wrong phone → 404
+```
+GET
+http://localhost:4000/api/v1/orders/SL-260812-0001?phone=03009999999
+```
+Order numbers are sequential, so anyone could count through them. **404, not 403** —
+confirming an order exists but belongs to someone else leaks the same thing.
+This is interim; the OTP session in Sprint 2 replaces it.
+
+### 3c.7 A stale total → 409
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "contact": { "name": "Stale Quote", "phone": "03001234567" },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ],
+  "expectedTotal": 50000
+}
+```
+→ `PRICE_CHANGED` with `quotedTotal`, `currentTotal` and `difference`, so the UI can say
+exactly what moved. Nothing is written and **no order number is consumed** — gaps in a
+sequential order book look like lost orders.
+
+### 3c.8 Delivery with no address → 422
+Same as 3c.2 but drop the `address` block. Coordinates alone are not somewhere a rider
+can go.
+
+### 3c.9 A phone that isn't Pakistani → 422
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "contact": { "name": "Bad Phone", "phone": "12345" },
+  "items": [
+    { "kind": "product", "productId": "6a7c2fbe9758de53ab6f5ba7", "qty": 2 }
+  ],
+  "expectedTotal": 85800
+}
+```
+
+### Watching the numbering
+
+Place several orders in a row and the sequence increments — `SL-260812-0001`, `0002`,
+`0003`. The date is the Karachi calendar date and the counter restarts each day. It's
+allocated atomically, so two customers checking out in the same second can never collide.
+
+---
+
 # 4 · Staff login
 
 ### 4.1 Log in as admin  ← run before anything in §5, §6
@@ -833,8 +982,6 @@ Still returns the JSON error envelope, never an HTML error page.
 # 7 · Not built yet — every one of these returns 404
 
 ```
-POST  http://localhost:4000/api/v1/orders
-GET   http://localhost:4000/api/v1/orders
 POST  http://localhost:4000/api/v1/auth/otp/request
 POST  http://localhost:4000/api/v1/auth/otp/verify
 POST  http://localhost:4000/api/v1/enquiries
@@ -844,7 +991,7 @@ GET   http://localhost:4000/api/v1/staff/products
 GET   http://localhost:4000/api/v1/staff/reports/daily
 ```
 
-That is the edge of Sprint 1, not a bug. **No order can be placed yet.**
+That is the edge of what is built. Orders CAN now be placed — see §3c.
 
 ---
 

@@ -3,10 +3,10 @@
 Ordering API for Sugarloop — a Cash-on-Delivery donut shop with four branches in
 Islamabad. Node + Express + Mongoose + Zod on MongoDB, MVC layout, REST at `/api/v1`.
 
-**Status: Sprint 1, roughly 55% complete.** The catalogue, branches, opening-hours engine,
-server-side pricing and staff authentication work end to end. A cart can be priced;
-**an order cannot yet be placed** — the order model and numbering are next. See
-[Roadmap](#roadmap).
+**Status: Sprint 1, roughly 70% complete.** A customer can browse the menu, be quoted a
+price the server computed, and **place a Cash-on-Delivery order**. What is missing before
+this can face the public is phone verification (OTP), notifications, and the staff order
+board. See [Roadmap](#roadmap).
 
 ---
 
@@ -135,6 +135,21 @@ grand total. It rejects with `MINIMUM_ORDER_NOT_MET`, `ITEMS_UNAVAILABLE`,
 `OUTSIDE_DELIVERY_AREA`, `BRANCH_NOT_ACCEPTING_ORDERS` or `INVALID_BOX`, each carrying the
 detail a UI needs to explain itself.
 
+```
+POST /orders                         places an order
+GET  /orders/:orderNumber?phone=     one order — see the note below
+```
+
+`POST /orders` is the quote plus `contact`, `address` and **`expectedTotal`** — the grand
+total the customer was shown. The server re-runs the pricing engine from scratch and, if
+anything moved since the quote, rejects with `PRICE_CHANGED` rather than silently charging
+a different number. Orders are numbered `SL-YYMMDD-NNNN`, allocated atomically, and only
+after pricing succeeds so a rejected cart never burns a number.
+
+⚠️ `GET /orders/:orderNumber` requires the phone the order was placed with. Order numbers
+are sequential and enumerable, so an unguarded lookup would hand over every customer's
+address by counting. This is interim — Sprint 2's phone-OTP session replaces it.
+
 ### Staff — `Authorization: Bearer <accessToken>`
 
 ```
@@ -167,7 +182,7 @@ npm run check
 **API** — a Postman collection in [`postman/`](postman/):
 
 - `sugarloop-simple.postman_collection.json` — 20 plain requests for clicking through
-- `sugarloop-api.postman_collection.json` — 58 requests, 384 assertions, for regression
+- `sugarloop-api.postman_collection.json` — 66 requests, 437 assertions, for regression
 - `TESTING.md` — every endpoint as a copy-paste request with real ids
 
 ```bash
@@ -185,7 +200,7 @@ Route → controller → service → model, plus a `views/` serialiser layer.
 ```
 src/
   config/       env validation, db, logger, and every business rule in constants.js
-  models/       Mongoose schemas
+  models/       Mongoose schemas — Product, Branch, BranchStock, Order, Counter, staff
   controllers/  thin — read request, call service, shape response. No Mongoose.
   services/     the actual business rules
   views/        the only thing that decides what leaves the API
@@ -237,9 +252,9 @@ the expensive migration this design exists to avoid.
 | 3 Catalogue endpoints | ✅ |
 | 4 Hours engine | ✅ |
 | 5 Pricing engine | ✅ |
-| **6 Orders + numbering** | ❌ **next** |
+| 6 Orders + numbering | ✅ |
 | 7 Staff auth + RBAC | ✅ built ahead of order |
-| 8 Order status + stock toggles | ❌ |
+| **8 Order status + stock toggles** | ❌ **next** |
 | 9 Geocoding + branch assignment | ❌ unblocked — real coordinates are in |
 | 10 Staging deploy | ❌ |
 

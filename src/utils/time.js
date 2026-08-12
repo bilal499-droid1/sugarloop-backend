@@ -80,6 +80,26 @@ export function minuteOfDayInZone(date = new Date(), timeZone = BUSINESS_TIMEZON
   return hour * 60 + minute
 }
 
+/**
+ * 'YYMMDD' for the local calendar date in `timeZone` — the date segment of an order
+ * number (`SL-260810-0042`).
+ *
+ * The CALENDAR date, deliberately, not the trading night. An order placed at 01:00 on the
+ * 11th belongs to the trading session that opened on the 10th, but it is numbered 260811
+ * because that is the date on the customer's clock, on their receipt, and in the phone
+ * call they make about it. A trading-day grouping is a reporting concern and belongs in
+ * reports, not baked into an identifier that has to be read aloud.
+ *
+ * Resolved in Asia/Karachi, so a server running UTC does not roll the number over five
+ * hours early and issue two orders the same sequence on different dates.
+ */
+export function businessDateStamp(date = new Date(), timeZone = BUSINESS_TIMEZONE) {
+  const { year, month, day } = zonedParts(date, timeZone)
+  const pad = (value) => String(value).padStart(2, '0')
+
+  return `${pad(year % 100)}${pad(month)}${pad(day)}`
+}
+
 /** The zone's UTC offset, in ms, at a given instant. */
 function offsetMsAt(date, timeZone) {
   const { year, month, day, hour, minute, second } = zonedParts(date, timeZone)

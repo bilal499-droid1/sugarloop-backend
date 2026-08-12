@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  businessDateStamp,
   isOpenAt,
   isAcceptingOrdersAt,
   minuteOfDayInZone,
@@ -170,6 +171,35 @@ test('minutesUntilLastOrder drives the checkout countdown', async (t) => {
     assert.equal(minutesUntilLastOrder({ ...SUGARLOOP, at: pkt(10, '02:30') }), null)
     assert.equal(minutesUntilLastOrder({ ...SUGARLOOP, at: pkt(10, '02:31') }), null)
     assert.equal(minutesUntilLastOrder({ ...SUGARLOOP, at: pkt(10, '09:00') }), null)
+  })
+})
+
+test('businessDateStamp is the date segment of an order number', async (t) => {
+  await t.test('YYMMDD in Karachi', () => {
+    assert.equal(businessDateStamp(pkt(10, '14:00')), '260810')
+    assert.equal(businessDateStamp(pkt(9, '11:00')), '260809')
+  })
+
+  await t.test('pads single-digit months and days', () => {
+    assert.equal(businessDateStamp(new Date('2026-01-05T14:00:00+05:00')), '260105')
+  })
+
+  await t.test('reads the Karachi calendar date, not UTC', () => {
+    // 20:00 UTC is already 01:00 the NEXT day in Karachi. A server on UTC would stamp
+    // the previous date and reuse a sequence number that day has already issued.
+    assert.equal(businessDateStamp(new Date('2026-08-10T20:00:00Z'), KARACHI), '260811')
+    assert.equal(businessDateStamp(new Date('2026-08-10T20:00:00Z'), 'UTC'), '260810')
+  })
+
+  await t.test('an after-midnight order takes the new calendar date', () => {
+    // 01:00 on the 11th belongs to the trading night that opened on the 10th, but the
+    // number carries the date on the customer's clock and on their receipt.
+    assert.equal(businessDateStamp(pkt(11, '01:00')), '260811')
+  })
+
+  await t.test('rolls over year end', () => {
+    assert.equal(businessDateStamp(new Date('2026-12-31T23:30:00+05:00')), '261231')
+    assert.equal(businessDateStamp(new Date('2027-01-01T00:30:00+05:00')), '270101')
   })
 })
 

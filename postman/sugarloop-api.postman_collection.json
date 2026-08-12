@@ -736,6 +736,238 @@
       ]
     },
     {
+      "name": "2c · Orders",
+      "item": [
+        {
+          "name": "Quote first — capture the total",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const q = pm.response.json().data.quote",
+                  "// The order must send back exactly what the customer was shown.",
+                  "pm.collectionVariables.set('quotedTotal', q.totals.grandTotal.amount)",
+                  "pm.test('Rs 958 for delivery', () => pm.expect(q.totals.grandTotal.amount).to.eql(95800))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Place the order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201))",
+                  "const o = pm.response.json().data.order",
+                  "pm.collectionVariables.set('orderNumber', o.orderNumber)",
+                  "",
+                  "pm.test('numbered SL-YYMMDD-NNNN', () => {",
+                  "  pm.expect(o.orderNumber).to.match(/^SL-\\d{6}-\\d{4}$/)",
+                  "})",
+                  "pm.test('starts as placed, Cash on Delivery, unpaid', () => {",
+                  "  pm.expect(o.status).to.eql('placed')",
+                  "  pm.expect(o.payment.method).to.eql('cod')",
+                  "  pm.expect(o.payment.status).to.eql('pending')",
+                  "})",
+                  "pm.test('total matches the quote exactly', () => {",
+                  "  pm.expect(o.totals.grandTotal.amount).to.eql(Number(pm.collectionVariables.get('quotedTotal')))",
+                  "})",
+                  "pm.test('phone normalised to E.164', () => {",
+                  "  pm.expect(o.contact.phone).to.eql('+923001234567')",
+                  "})",
+                  "pm.test('promisedAt is in the future', () => {",
+                  "  pm.expect(new Date(o.promisedAt).getTime()).to.be.greaterThan(Date.now())",
+                  "})",
+                  "",
+                  "// The views layer is what keeps these out of a customer response.",
+                  "pm.test('no internal trail reaches the customer', () => {",
+                  "  pm.expect(o).to.not.have.property('meta')",
+                  "  pm.expect(o).to.not.have.property('statusHistory')",
+                  "  pm.expect(o).to.not.have.property('fiscal')",
+                  "  pm.expect(o).to.not.have.property('customerId')",
+                  "  pm.expect(o).to.not.have.property('distanceKm')",
+                  "  pm.expect(pm.response.text()).to.not.include('userAgent')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"address\": {\n    \"line1\": \"House 12, Street 4\",\n    \"area\": \"Sector E\",\n    \"notes\": \"Blue gate\"\n  },\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\"\n  },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": {{quotedTotal}}\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "Retrieve it with the right phone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const o = pm.response.json().data.order",
+                  "pm.test('same order', () => pm.expect(o.orderNumber).to.eql(pm.collectionVariables.get('orderNumber')))",
+                  "pm.test('items are snapshotted, not looked up', () => {",
+                  "  pm.expect(o.items[0].name).to.eql('KitKat Crunch')",
+                  "  pm.expect(o.items[0].unitPrice.amount).to.eql(42900)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{orderNumber}}?phone=03001234567"
+          }
+        },
+        {
+          "name": "Wrong phone → 404, not 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Order numbers are sequential and enumerable, so an unguarded lookup would",
+                  "// hand over every customer's address by counting. 404 rather than 403:",
+                  "// confirming it exists but belongs to someone else is the same leak.",
+                  "pm.test('404', () => pm.response.to.have.status(404))",
+                  "pm.test('reveals nothing about the real order', () => {",
+                  "  pm.expect(pm.response.text()).to.not.include('Ayesha')",
+                  "  pm.expect(pm.response.text()).to.not.include('House 12')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{orderNumber}}?phone=03009999999"
+          }
+        },
+        {
+          "name": "A stale total is rejected, never silently repriced",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('PRICE_CHANGED', () => pm.expect(e.code).to.eql('PRICE_CHANGED'))",
+                  "pm.test('shows both numbers so the UI can explain itself', () => {",
+                  "  pm.expect(e.details.quotedTotal).to.eql(50000)",
+                  "  pm.expect(e.details.currentTotal).to.eql(85800)",
+                  "  pm.expect(e.details.difference).to.eql(35800)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Stale Quote\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 50000\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "Delivery without an address → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 — a rider cannot deliver to coordinates alone', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"contact\": { \"name\": \"No Address\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 95800\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "A non-Pakistani phone number → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('names the field', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error.details)).to.include('phone')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Bad Phone\", \"phone\": \"12345\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 85800\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "Unknown order number → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('404', () => pm.response.to.have.status(404))"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/SL-990101-9999?phone=03001234567"
+          }
+        }
+      ]
+    },
+    {
       "name": "3 · Staff auth",
       "item": [
         {
@@ -1355,7 +1587,7 @@
                 "exec": [
                   "// Documents the boundary of what is built. When orders land, this flips to",
                   "// failing — which is the reminder to extend this collection.",
-                  "pm.test('POST /orders is not implemented yet', () => pm.response.to.have.status(404))"
+                  "pm.test('POST /auth/otp/request is not implemented yet', () => pm.response.to.have.status(404))"
                 ]
               }
             }
@@ -1364,7 +1596,7 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{}" },
-            "url": "{{baseUrl}}/orders"
+            "url": "{{baseUrl}}/auth/otp/request"
           }
         }
       ]
@@ -1453,6 +1685,11 @@
     { "key": "productSlug", "value": "" },
     { "key": "productId", "value": "" },
     { "key": "qaEmail", "value": "" },
-    { "key": "qaStaffId", "value": "" }
+    { "key": "qaStaffId", "value": "" },
+    { "key": "kitkatId", "value": "" },
+    { "key": "lotusId", "value": "" },
+    { "key": "oreoId", "value": "" },
+    { "key": "quotedTotal", "value": "" },
+    { "key": "orderNumber", "value": "" }
   ]
 }
