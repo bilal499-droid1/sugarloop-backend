@@ -30,7 +30,7 @@ test('emits the fields a storefront needs', () => {
   assert.equal(view.slug, 'lotus')
   assert.equal(view.name, 'Lotus')
   assert.equal(view.category, 'Donuts')
-  assert.equal(view.price, 29_900, 'price stays integer paisa')
+  assert.equal(view.price, 29_900, 'price stays in stored form')
   assert.equal(view.priceFormatted, 'Rs 299')
   assert.equal(view.boxEligible, true)
   assert.equal(view.legacyId, 2)

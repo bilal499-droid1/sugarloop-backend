@@ -78,7 +78,7 @@ const line = (name, qty = 1) => ({ kind: 'product', productId: idOf(name), qty }
 test('a price posted by the client is ignored entirely', () => {
   const honest = price([line('KitKat Crunch', 2)])
 
-  // Same cart, but the client claims each donut costs 1 paisa and the total is 2.
+  // Same cart, but the client claims each donut costs Rs 0.01 and the total is Rs 0.02.
   const hostile = price([
     { kind: 'product', productId: idOf('KitKat Crunch'), qty: 2, price: 1, lineTotal: 2, total: 2 },
   ])
@@ -146,7 +146,7 @@ test('the minimum is judged on the subtotal, not the delivery fee', () => {
 // Build Your Box
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('a 4-box of Crafted prices to 171600 paisa', () => {
+test('a 4-box of Crafted prices to Rs 1,716', () => {
   const kitkat = idOf('KitKat Crunch')
   const quote = price([{ kind: 'box', boxSize: 4, productIds: [kitkat, kitkat, kitkat, kitkat] }])
 
@@ -378,7 +378,7 @@ test('taxBreakdown reconciles exactly at any rate', async (t) => {
     assert.equal(b.grossAmount, 35_282)
   })
 
-  await t.test('never drifts by a paisa across awkward amounts', () => {
+  await t.test('never drifts by a hundredth of a rupee across awkward amounts', () => {
     for (const amount of [1, 7, 33, 199, 18_500, 29_900, 42_900, 171_600, 999_999]) {
       for (const rate of [0, 5, 17, 18]) {
         for (const inclusive of [true, false]) {
@@ -388,7 +388,7 @@ test('taxBreakdown reconciles exactly at any rate', async (t) => {
             b.grossAmount,
             `${amount} at ${rate}% ${inclusive ? 'inclusive' : 'exclusive'}`
           )
-          assert.ok(Number.isInteger(b.taxAmount), 'tax stays whole paisa')
+          assert.ok(Number.isInteger(b.taxAmount), 'tax stays a whole stored amount')
         }
       }
     }
@@ -427,5 +427,5 @@ test('totals always reconcile against the lines', () => {
     quote.totals.grandTotal,
     quote.totals.subtotal + quote.totals.deliveryFee - quote.totals.discount
   )
-  assert.ok(Number.isInteger(quote.totals.grandTotal), 'still integer paisa')
+  assert.ok(Number.isInteger(quote.totals.grandTotal), 'still a whole stored amount')
 })

@@ -7,8 +7,8 @@
  *
  * Shape notes, and why they differ from the frontend file:
  *
- * - `price` is in RUPEES here and converted to integer paisa by the seed. The table stays
- *   readable and there is exactly one place a paisa conversion can go wrong.
+ * - `price` is in RUPEES here and converted to the stored form by the seed (Rs 299 becomes
+ *   29900). The table stays readable and there is one place the conversion can go wrong.
  * - `sku` and `slug` are added — both are required and unique on the Product model. SKU
  *   is what a kitchen ticket prints and what Nimbus POS maps against in Phase 2; slug is
  *   the public URL (`/products/:slug`), which replaces the numeric frontend id.

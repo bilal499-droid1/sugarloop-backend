@@ -53,7 +53,7 @@ is still empty — that is the collection's design, not a broken endpoint.
 |---|---|
 | 0 · Health | liveness, readiness, the `{ data }` envelope |
 | 1 · Branches | all 4, `{ lat, lng }` (not the GeoJSON array), server-computed `isOpenNow` vs `isAcceptingOrders`, one clock across the whole response |
-| 2 · Catalogue | 43 products, price sum **1,819,500 paisa**, all category counts, filters, per-branch `inStock`, and that no `publicId` / FBR field / internal leaks |
+| 2 · Catalogue | 43 products, price sum **Rs 18,195**, all category counts, filters, per-branch `inStock`, and that no `publicId` / FBR field / internal leaks |
 | 3 · Staff auth | login, `/me`, refresh rotation, manager login, no password hash in any payload |
 | 4 · Staff users | full admin CRUD, soft delete, password policy |
 | 5 · Authorisation | 401 without a token, 403 for a manager hitting admin-only routes, no account enumeration on login |

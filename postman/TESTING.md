@@ -98,7 +98,8 @@ http://localhost:4000/api/v1/branches/ZZ9
 GET
 http://localhost:4000/api/v1/products
 ```
-→ 43 items. Prices are **integer paisa**: `29900` = Rs 299.
+→ 43 items. Prices are PKR stored as whole hundredths of a rupee: `29900` = **Rs 299**.
+Every response also carries `priceFormatted`.
 
 ### 3.2 By category
 ```
@@ -329,7 +330,7 @@ never read. This is the single rule the pricing engine exists to enforce.
   ]
 }
 ```
-→ **Rs 1,716** (171600 paisa). Duplicates allowed; price is the plain sum of contents.
+→ **Rs 1,716** (stored as 171600). Duplicates allowed; price is the plain sum of contents.
 
 ### 3b.5 Mixed box — different categories, with duplicates
 ```json

@@ -41,7 +41,7 @@ const MS_PER_MINUTE = 60_000
  *
  * `taxAmount` is always the DIFFERENCE between gross and net rather than a second rounded
  * multiplication, so the three numbers reconcile exactly at any rate. Computing tax
- * independently is how a line ends up off by a paisa from its own components.
+ * independently is how a line ends up a hundredth of a rupee out from its own components.
  */
 export function taxBreakdown(amount, taxRatePercent = 0, priceIncludesTax = true) {
   if (!taxRatePercent) {

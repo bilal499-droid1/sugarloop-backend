@@ -11,8 +11,9 @@
  * - `sortOrder`, `isActive`, `createdAt`, `updatedAt` — internal merchandising and
  *   bookkeeping. The list arrives already sorted; the client does not re-derive it.
  *
- * `price` is integer paisa, as everywhere else in the system. `priceFormatted` is there so
- * nothing on the client is tempted to divide by 100 and start rounding.
+ * `price` is PKR in the stored form used everywhere in this system — Rs 299 is 29900.
+ * `priceFormatted` is published alongside it so nothing on the client is tempted to
+ * divide by 100 and start rounding.
  */
 
 function imageView(image) {

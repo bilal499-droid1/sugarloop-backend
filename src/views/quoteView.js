@@ -1,13 +1,13 @@
 /**
  * Response shape for a priced cart.
  *
- * Every amount is integer paisa, with a formatted twin so nothing on the client is
- * tempted to divide by 100 and start rounding. The client DISPLAYS these numbers; it
- * never computes them — that is the whole point of the pricing engine.
+ * Every amount is PKR in stored form (Rs 299 is 29900), with a formatted twin so nothing
+ * on the client is tempted to divide by 100 and start rounding. The client DISPLAYS these
+ * numbers; it never computes them — that is the whole point of the pricing engine.
  */
 import { formatPKR } from '../utils/money.js'
 
-const money = (paisa) => ({ amount: paisa, formatted: formatPKR(paisa) })
+const money = (amount) => ({ amount, formatted: formatPKR(amount) })
 
 function lineView(line) {
   const view = {

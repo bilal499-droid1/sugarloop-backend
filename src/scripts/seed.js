@@ -13,7 +13,7 @@ import mongoose from 'mongoose'
 import { connectDatabase, disconnectDatabase } from '../config/db.js'
 import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
-import { toPaisa } from '../utils/money.js'
+import { toStoredAmount } from '../utils/money.js'
 import { STAFF_ROLE } from '../config/constants.js'
 import { Product } from '../models/Product.js'
 import { Branch } from '../models/Branch.js'
@@ -21,9 +21,9 @@ import { BranchStock } from '../models/BranchStock.js'
 import { StaffUser } from '../models/StaffUser.js'
 import { CATALOGUE } from '../itemData.js'
 
-// Prices are written in rupees and converted here, so the table stays readable and
-// there is exactly one place a paisa conversion can go wrong.
-const rs = toPaisa
+// Prices are written in rupees and converted to the stored form here, so the table stays
+// readable and there is exactly one place the conversion can go wrong.
+const rs = toStoredAmount
 
 /**
  * The four real branches.
@@ -119,7 +119,7 @@ const products = CATALOGUE.map(({ sourceImages: _sourceImages, price, ...product
 }))
 
 /**
- * Kickoff §2 acceptance check: every price ported correctly sums to 1,819,500 paisa.
+ * Kickoff §2 acceptance check: every price ported correctly sums to Rs 18,195.
  *
  * Asserted at seed time rather than left to a test, because the failure it catches is a
  * transcription typo — a donut seeded at Rs 29 instead of Rs 299 — which is invisible in
@@ -127,7 +127,7 @@ const products = CATALOGUE.map(({ sourceImages: _sourceImages, price, ...product
  * whoever reconciles the till.
  */
 const EXPECTED_CATALOGUE_COUNT = 43
-const EXPECTED_PRICE_SUM_PAISA = 1_819_500
+const EXPECTED_PRICE_SUM = 1_819_500
 
 function assertCatalogueIntegrity() {
   const sum = products.reduce((total, product) => total + product.price, 0)
@@ -139,10 +139,10 @@ function assertCatalogueIntegrity() {
     )
   }
 
-  if (sum !== EXPECTED_PRICE_SUM_PAISA) {
+  if (sum !== EXPECTED_PRICE_SUM) {
     throw new Error(
-      `Catalogue prices sum to ${sum} paisa, expected ${EXPECTED_PRICE_SUM_PAISA}. ` +
-        `Off by ${sum - EXPECTED_PRICE_SUM_PAISA} — likely a transcription error in itemData.js.`
+      `Catalogue prices sum to Rs ${sum / 100}, expected Rs ${EXPECTED_PRICE_SUM / 100}. ` +
+        `Off by Rs ${(sum - EXPECTED_PRICE_SUM) / 100} — likely a transcription error in itemData.js.`
     )
   }
 }

@@ -16,7 +16,8 @@ server-side pricing and staff authentication work end to end. A cart can be pric
 every price, recomputes every total, and stores its own numbers. The current frontend
 trusts `localStorage`, where anyone can edit a price to `1` in devtools.
 
-**2. Money is integer paisa, everywhere.** `29900` is Rs 299. No floats, ever — `0.1 + 0.2`
+**2. The currency is PKR, stored as whole hundredths of a rupee.** `29900` is Rs 299,
+the way card processors store USD as cents. No floats, ever — `0.1 + 0.2`
 is not `0.3`, and a rounding error in a price is a rounding error in someone's bill.
 
 ---
@@ -166,7 +167,8 @@ npm run check
 **API** — a Postman collection in [`postman/`](postman/):
 
 - `sugarloop-simple.postman_collection.json` — 20 plain requests for clicking through
-- `sugarloop-api.postman_collection.json` — 47 requests, 310 assertions, for regression
+- `sugarloop-api.postman_collection.json` — 58 requests, 384 assertions, for regression
+- `TESTING.md` — every endpoint as a copy-paste request with real ids
 
 ```bash
 npm run test:api -- --env-var "adminPassword=YOUR_PASSWORD"
@@ -190,7 +192,7 @@ src/
   routes/       one router per resource
   middleware/   auth, rbac, Zod validation, rate limits, error handling
   validators/   a Zod schema per endpoint
-  utils/        money (paisa), time (opening hours), ApiError
+  utils/        money (PKR), time (opening hours), ApiError
   itemData.js   the 43-product catalogue — seed input, not runtime data
   scripts/      seed.js
 ```

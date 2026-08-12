@@ -68,14 +68,14 @@ const productSchema = new mongoose.Schema(
     /** Menu sub-heading within a category — 'Signature', 'Crafted'. Free text by design. */
     type: { type: String, trim: true, default: '' },
 
-    // Integer paisa. See utils/money.js for why this is not a float.
+    // PKR, stored as whole hundredths of a rupee. See utils/money.js for why not a float.
     price: {
       type: Number,
       required: true,
       min: [0, 'Price cannot be negative'],
       validate: {
         validator: Number.isInteger,
-        message: 'Price must be an integer number of paisa (Rs 299 is 29900)',
+        message: 'Price must be a whole stored amount — Rs 299 is 29900',
       },
     },
 

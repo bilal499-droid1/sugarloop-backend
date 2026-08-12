@@ -1,8 +1,9 @@
 // Business rules agreed in BACKEND-DESIGN.md. Kept in one file so a rule change is
 // a one-line diff with a reviewable history, not a hunt through controllers.
 //
-// Money is ALWAYS integer paisa. Rs 299 is 29900. Never floats — 0.1 + 0.2 !== 0.3
-// and a rounding error in a price is a rounding error in someone's bill.
+// The currency is PKR. Amounts are stored as whole hundredths of a rupee — Rs 299 is
+// 29900 — never as floats, because 0.1 + 0.2 !== 0.3 and a rounding error in a price is
+// a rounding error in someone's bill. See utils/money.js.
 
 export const CURRENCY = 'PKR'
 
