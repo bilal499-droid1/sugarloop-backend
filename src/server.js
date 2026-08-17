@@ -2,8 +2,14 @@ import { createApp } from './app.js'
 import { env } from './config/env.js'
 import { logger } from './config/logger.js'
 import { connectDatabase, disconnectDatabase } from './config/db.js'
+import { assertTransportIsProductionSafe } from './services/otpDelivery.service.js'
 
 async function start() {
+  // Before anything binds a port: the development OTP transport in production would mean
+  // every customer's verification code printed to the logs and no message ever sent.
+  // Same reasoning as the JWT placeholder check in config/env.js — refuse to boot.
+  assertTransportIsProductionSafe()
+
   await connectDatabase()
 
   const app = createApp()

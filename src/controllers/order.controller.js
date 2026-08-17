@@ -10,7 +10,12 @@ function contextOf(req) {
 }
 
 export async function create(req, res) {
-  const order = await orderService.create(req.body, contextOf(req))
+  // The verified phone comes off the token, never off the body — the body is the thing
+  // being checked. See order.service.create.
+  const order = await orderService.create(req.body, {
+    ...contextOf(req),
+    verifiedPhone: req.customer.phone,
+  })
 
   return created(res, { order: orderView.customer(order) })
 }

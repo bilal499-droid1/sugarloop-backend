@@ -25,6 +25,15 @@ const schema = z.object({
   JWT_STAFF_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+  /**
+   * How verification codes reach a phone. See services/otpDelivery.service.js.
+   *
+   * `log` prints the code to the server console and sends nothing — the only transport
+   * that works today, because WhatsApp and Twilio both need accounts that do not exist
+   * yet. It is refused at boot in production.
+   */
+  OTP_TRANSPORT: z.enum(['log', 'whatsapp', 'sms']).default('log'),
 })
 
 const parsed = schema.safeParse(process.env)

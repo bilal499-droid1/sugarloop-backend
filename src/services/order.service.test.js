@@ -1,4 +1,4 @@
-import test from 'node:test'
+﻿import test from 'node:test'
 import assert from 'node:assert/strict'
 import mongoose from 'mongoose'
 
@@ -11,8 +11,8 @@ import * as orderService from './order.service.js'
 import { connectTestDatabase, disconnectTestDatabase } from '../testing/mongoTestDb.js'
 
 /**
- * Integration tests. These need a real MongoDB, because what they check — atomic sequence
- * allocation under concurrency, and unique-index behaviour — cannot be observed against a
+ * Integration tests. These need a real MongoDB, because what they check â€” atomic sequence
+ * allocation under concurrency, and unique-index behaviour â€” cannot be observed against a
  * stub. Everything provable without a database is already covered in pricing.engine.test.js.
  *
  * The suite SKIPS rather than fails when Mongo is unreachable, so `npm test` stays green on
@@ -71,32 +71,41 @@ async function seedFixtures() {
   ])
 }
 
+const CUSTOMER_PHONE = '+923001234567'
+
 const request = (overrides = {}) => ({
   fulfilment: 'pickup',
   branchCode: 'DHA2',
-  contact: { name: 'Ayesha Khan', phone: '+923001234567' },
+  contact: { name: 'Ayesha Khan', phone: CUSTOMER_PHONE },
   items: [{ kind: 'product', productId: String(kitkat._id), qty: 2 }],
   expectedTotal: 85_800,
   ...overrides,
 })
+
+/**
+ * What the route supplies after `requireCustomer` has checked the OTP session. The
+ * service refuses to place an order without it, so every call here has to carry one â€”
+ * see `assertPhoneWasVerified`.
+ */
+const CONTEXT = { verifiedPhone: CUSTOMER_PHONE }
 
 test('order service', { skip, concurrency: false }, async (t) => {
   t.beforeEach(seedFixtures)
   t.after(() => disconnectTestDatabase(connected))
 
   await t.test('numbers an order SL-YYMMDD-NNNN, sequentially', async () => {
-    const first = await orderService.create(request(), {}, { now: NOW })
-    const second = await orderService.create(request(), {}, { now: NOW })
+    const first = await orderService.create(request(), CONTEXT, { now: NOW })
+    const second = await orderService.create(request(), CONTEXT, { now: NOW })
 
     assert.equal(first.orderNumber, 'SL-260810-0001')
     assert.equal(second.orderNumber, 'SL-260810-0002')
   })
 
   await t.test('the sequence restarts on a new date', async () => {
-    await orderService.create(request(), {}, { now: NOW })
+    await orderService.create(request(), CONTEXT, { now: NOW })
 
     const nextDay = new Date('2026-08-11T14:00:00+05:00')
-    const tomorrow = await orderService.create(request(), {}, { now: nextDay })
+    const tomorrow = await orderService.create(request(), CONTEXT, { now: nextDay })
 
     assert.equal(tomorrow.orderNumber, 'SL-260811-0001')
   })
@@ -105,7 +114,7 @@ test('order service', { skip, concurrency: false }, async (t) => {
     // The acceptance check. Counting existing orders and adding one produces duplicates
     // the first time two customers check out in the same second; an atomic $inc does not.
     const placed = await Promise.all(
-      Array.from({ length: 25 }, () => orderService.create(request(), {}, { now: NOW }))
+      Array.from({ length: 25 }, () => orderService.create(request(), CONTEXT, { now: NOW }))
     )
 
     const numbers = placed.map((order) => order.orderNumber)
@@ -122,7 +131,7 @@ test('order service', { skip, concurrency: false }, async (t) => {
     await Product.updateOne({ _id: kitkat._id }, { $set: { price: 45_000 } })
 
     await assert.rejects(
-      () => orderService.create(request(), {}, { now: NOW }),
+      () => orderService.create(request(), CONTEXT, { now: NOW }),
       (err) => {
         assert.equal(err.statusCode, 409)
         assert.equal(err.code, 'PRICE_CHANGED')
@@ -137,15 +146,15 @@ test('order service', { skip, concurrency: false }, async (t) => {
   })
 
   await t.test('a rejected order burns no order number', async () => {
-    await orderService.create(request(), {}, { now: NOW })
+    await orderService.create(request(), CONTEXT, { now: NOW })
 
     await assert.rejects(
-      () => orderService.create(request({ expectedTotal: 1 }), {}, { now: NOW })
+      () => orderService.create(request({ expectedTotal: 1 }), CONTEXT, { now: NOW })
     )
 
     // Gaps in a sequential order book are what make an accountant ask which orders went
-    // missing — so the number is allocated only after pricing succeeds.
-    const next = await orderService.create(request(), {}, { now: NOW })
+    // missing â€” so the number is allocated only after pricing succeeds.
+    const next = await orderService.create(request(), CONTEXT, { now: NOW })
     assert.equal(next.orderNumber, 'SL-260810-0002')
   })
 
@@ -156,7 +165,7 @@ test('order service', { skip, concurrency: false }, async (t) => {
     )
 
     await assert.rejects(
-      () => orderService.create(request(), {}, { now: NOW }),
+      () => orderService.create(request(), CONTEXT, { now: NOW }),
       (err) => err.code === 'ITEMS_UNAVAILABLE' && err.details.outOfStock.includes('KitKat Crunch')
     )
   })
@@ -165,13 +174,13 @@ test('order service', { skip, concurrency: false }, async (t) => {
     const afterCutoff = new Date('2026-08-11T02:31:00+05:00')
 
     await assert.rejects(
-      () => orderService.create(request(), {}, { now: afterCutoff }),
+      () => orderService.create(request(), CONTEXT, { now: afterCutoff }),
       (err) => err.code === 'BRANCH_NOT_ACCEPTING_ORDERS'
     )
   })
 
   await t.test('name, sku and price are snapshotted onto the line', async () => {
-    const order = await orderService.create(request(), {}, { now: NOW })
+    const order = await orderService.create(request(), CONTEXT, { now: NOW })
 
     // A later price change must not rewrite what this customer was charged.
     await Product.updateOne({ _id: kitkat._id }, { $set: { price: 99_900, name: 'Renamed' } })
@@ -185,7 +194,7 @@ test('order service', { skip, concurrency: false }, async (t) => {
   })
 
   await t.test('starts as placed, with the transition recorded', async () => {
-    const order = await orderService.create(request(), {}, { now: NOW })
+    const order = await orderService.create(request(), CONTEXT, { now: NOW })
 
     assert.equal(order.status, 'placed')
     assert.equal(order.statusHistory.length, 1)
@@ -207,7 +216,7 @@ test('order service', { skip, concurrency: false }, async (t) => {
         address: { line1: 'House 12, Street 4', area: 'Sector E', city: 'Islamabad' },
         expectedTotal: 95_800, // + Rs 100 delivery
       }),
-      {},
+      CONTEXT,
       { now: NOW }
     )
 
@@ -220,20 +229,43 @@ test('order service', { skip, concurrency: false }, async (t) => {
   await t.test('the fraud trail is stored but never part of the customer view', async () => {
     const order = await orderService.create(
       request(),
-      { ip: '203.0.113.9', userAgent: 'Mozilla/5.0' },
+      { ...CONTEXT, ip: '203.0.113.9', userAgent: 'Mozilla/5.0' },
       { now: NOW }
     )
 
     assert.equal(order.meta.ip, '203.0.113.9', 'stored for an unpaid COD order')
   })
 
+  await t.test('an order must use the phone that was verified', async () => {
+    // Verifying your own number then ordering under someone else's is the exact prank
+    // scenario OTP exists to stop: the callback number is the only handle the branch has
+    // on a Cash-on-Delivery customer.
+    await assert.rejects(
+      () =>
+        orderService.create(
+          request({ contact: { name: 'Someone Else', phone: '+923009999999' } }),
+          CONTEXT,
+          { now: NOW }
+        ),
+      (err) => err.statusCode === 403 && err.code === 'PHONE_MISMATCH'
+    )
+
+    assert.equal(await Order.countDocuments(), 0, 'nothing was written')
+  })
+
+  await t.test('an order with no verified phone at all is refused', async () => {
+    // Guards against a future refactor silently dropping `requireCustomer` from the route.
+    await assert.rejects(() => orderService.create(request(), {}, { now: NOW }))
+    assert.equal(await Order.countDocuments(), 0)
+  })
+
   await t.test('lookup by number requires the phone it was placed with', async () => {
-    const order = await orderService.create(request(), {}, { now: NOW })
+    const order = await orderService.create(request(), CONTEXT, { now: NOW })
 
     const found = await orderService.getByNumber(order.orderNumber, { phone: '+923001234567' })
     assert.equal(found.orderNumber, order.orderNumber)
 
-    // Order numbers are sequential and enumerable. A wrong phone gets 404, not 403 —
+    // Order numbers are sequential and enumerable. A wrong phone gets 404, not 403 â€”
     // confirming the order exists but belongs to someone else is the same leak.
     await assert.rejects(
       () => orderService.getByNumber(order.orderNumber, { phone: '+923009999999' }),
@@ -242,7 +274,7 @@ test('order service', { skip, concurrency: false }, async (t) => {
   })
 
   await t.test('order numbers are unique at the database level too', async () => {
-    await orderService.create(request(), {}, { now: NOW })
+    await orderService.create(request(), CONTEXT, { now: NOW })
     const duplicate = await Order.findOne({}).lean()
 
     await assert.rejects(

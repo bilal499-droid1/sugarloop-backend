@@ -2,6 +2,8 @@ import { ApiError } from '../utils/ApiError.js'
 import { STAFF_ROLE } from '../config/constants.js'
 import { StaffUser } from '../models/StaffUser.js'
 import { verifyAccessToken } from '../services/staffAuth.service.js'
+import { verifyCustomerToken } from '../services/customerAuth.service.js'
+import { CUSTOMER_COOKIE } from '../controllers/customerAuth.controller.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 
 function bearerToken(req) {
@@ -11,6 +13,37 @@ function bearerToken(req) {
   if (!/^Bearer$/i.test(scheme) || !token) return null
   return token.trim()
 }
+
+/**
+ * Authenticates a verified customer — someone who has proved they hold their phone.
+ *
+ * Unlike `requireStaff` there is no database read, and there is nothing to read: a
+ * customer has no account, no roles and no revocable record. The phone in the token IS
+ * the identity, and the signature is what makes it trustworthy.
+ *
+ * Cookie first, bearer second. A browser keeps its four-day session in an httpOnly
+ * cookie where page scripts cannot reach it; scripted clients and the test suite have no
+ * cookie jar and send a bearer token instead.
+ *
+ * ⚠️ Proving you hold a phone number is NOT proof the order is honest — it is only proof
+ * the same person can be called back. That is the point for Cash on Delivery: it makes a
+ * prank cost the prankster a real, reachable number.
+ */
+export const requireCustomer = asyncHandler(async (req, _res, next) => {
+  const token = req.cookies?.[CUSTOMER_COOKIE] ?? bearerToken(req)
+
+  if (!token) {
+    throw new ApiError(
+      401,
+      'PHONE_NOT_VERIFIED',
+      'Please verify your phone number before placing an order'
+    )
+  }
+
+  const payload = verifyCustomerToken(token)
+  req.customer = { phone: payload.phone }
+  next()
+})
 
 /**
  * Authenticates a staff access token and attaches the live StaffUser document.

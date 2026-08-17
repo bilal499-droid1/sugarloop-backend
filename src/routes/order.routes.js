@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { validate } from '../middleware/validate.js'
 import { orderLimiter } from '../middleware/rateLimit.js'
+import { requireCustomer } from '../middleware/auth.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import {
   createOrderSchema,
@@ -18,14 +19,14 @@ const router = Router()
  * time and, on Cash on Delivery, a rider trip nobody has paid for. Ten a minute per IP is
  * generous for a person and useless for a script.
  *
- * ⚠️ Unauthenticated in Phase 1 — phone-OTP is Sprint 2. Until it lands, nothing verifies
- * that the phone number on an order belongs to whoever placed it, which is precisely the
- * gap that lets prank orders reach a real address. This endpoint should NOT be public
- * before OTP ships.
+ * Requires a verified phone. `requireCustomer` runs BEFORE `validate` deliberately: an
+ * unverified caller should be turned away without the API first walking them, field by
+ * field, through exactly what a valid order body looks like.
  */
 router.post(
   '/',
   orderLimiter,
+  requireCustomer,
   validate({ body: createOrderSchema }),
   asyncHandler(orderController.create)
 )

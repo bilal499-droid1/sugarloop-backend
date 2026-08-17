@@ -102,17 +102,21 @@ async function seedFixtures() {
   })
 }
 
+const CUSTOMER_PHONE = '+923001234567'
+
 /** Places a real order through the real pricing path, so the fixture is never a fiction. */
 function placeOrder({ branchCode = 'DHA2', fulfilment = 'pickup', now = NOW } = {}) {
   return orderService.create(
     {
       fulfilment,
       branchCode,
-      contact: { name: 'Ayesha Khan', phone: '+923001234567' },
+      contact: { name: 'Ayesha Khan', phone: CUSTOMER_PHONE },
       items: [{ kind: 'product', productId: String(donut._id), qty: 2 }],
       expectedTotal: 85_800,
     },
-    {},
+    // The order service refuses to place an order that was not phone-verified, so the
+    // fixture carries what `requireCustomer` would have supplied on the route.
+    { verifiedPhone: CUSTOMER_PHONE },
     { now }
   )
 }

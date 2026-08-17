@@ -78,12 +78,44 @@ function toOrderItem(line) {
 }
 
 /**
+ * The order must be placed under the number that was actually verified.
+ *
+ * Without this the whole OTP flow is decorative: anyone could verify their own phone once
+ * and then place unlimited orders naming somebody else's number — which is precisely the
+ * prank-order scenario verification exists to stop, since the callback number on the
+ * order is the only handle the branch has on a Cash-on-Delivery customer.
+ *
+ * Both sides are already normalised to E.164 by the same rule (see the two validators),
+ * so this compares like with like.
+ */
+function assertPhoneWasVerified(request, verifiedPhone) {
+  if (!verifiedPhone) {
+    // Reaching here means the route lost its `requireCustomer` guard. That is a
+    // programming error, and failing loudly beats silently accepting unverified orders.
+    throw ApiError.internal('order.create called without a verified phone')
+  }
+
+  if (request.contact.phone !== verifiedPhone) {
+    throw new ApiError(
+      403,
+      'PHONE_MISMATCH',
+      'This order must use the phone number you verified',
+      { verifiedPhone }
+    )
+  }
+}
+
+/**
  * Places an order.
  *
  * @param request  validated body — cart, fulfilment, contact, address, expectedTotal
- * @param context  { ip, userAgent } for the fraud trail. Never returned to a client.
+ * @param context  { ip, userAgent, verifiedPhone }. `verifiedPhone` comes from the OTP
+ *                 session token, never from the body. ip/userAgent are the fraud trail
+ *                 and are never returned to a client.
  */
 export async function create(request, context = {}, { now = new Date() } = {}) {
+  assertPhoneWasVerified(request, context.verifiedPhone)
+
   // Re-price from scratch. This re-runs every gate the quote ran — stock, opening hours,
   // the minimum, the delivery radius — against the database as it is at this instant.
   const priced = await priceQuote(request, { now })

@@ -109,6 +109,33 @@ export const STAFF_ROLE = Object.freeze({
   BRANCH_MANAGER: 'branch_manager',
 })
 
+/**
+ * Phone verification (BACKEND-DESIGN §6).
+ *
+ * These numbers stand between the client and a bill they did not expect. Every OTP costs
+ * real money in WhatsApp or SMS fees, and every unverified order is a rider sent to an
+ * address nobody confirmed. The per-phone limit is the one that protects the bill — an
+ * attacker rotating IPs still cannot make one number ring more than this. The per-IP
+ * layer lives in middleware/rateLimit.js.
+ */
+export const OTP = Object.freeze({
+  /** Six digits: hopeless to guess inside the attempt limit, easy to read off a
+   *  notification and type without a mistake. */
+  LENGTH: 6,
+
+  /** Minutes a code stays valid. Also drives the TTL index on the collection. */
+  TTL_MINUTES: 5,
+
+  /** Wrong guesses before the challenge is burned and a fresh code must be requested. */
+  MAX_ATTEMPTS: 5,
+
+  /** Codes per phone per hour. */
+  MAX_PER_PHONE_PER_HOUR: 3,
+
+  /** Seconds before "resend" does anything, so a double-tap does not spend two messages. */
+  RESEND_COOLDOWN_SECONDS: 60,
+})
+
 export const PRODUCT_CATEGORIES = Object.freeze([
   'Donuts',
   'Croissants',
