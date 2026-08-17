@@ -61,13 +61,17 @@ export const createOrderSchema = quoteSchema
   })
   .superRefine((value, ctx) => {
     if (value.fulfilment === 'delivery') {
-      if (!value.location) {
+      // Coordinates OR an address to geocode — the quote accepts either, and an order
+      // that could not name where it is going would be refused at pricing anyway.
+      if (!value.location && !value.addressText) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['location'],
-          message: 'Delivery requires location { lat, lng }',
+          message: 'Delivery requires either location { lat, lng } or addressText',
         })
       }
+      // Still required even when coordinates were given: `address` is what gets printed
+      // for the rider, and a pin alone does not tell them which gate or which floor.
       if (!value.address) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

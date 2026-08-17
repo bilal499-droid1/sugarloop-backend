@@ -45,11 +45,22 @@ export const quoteSchema = z
     fulfilment: z.enum(Object.values(FULFILMENT)),
 
     /**
-     * Delivery target. Coordinates for now; Step 9 adds `address` and geocodes it.
-     * Islamabad is around 33.6 N, 73.0 E — a swapped lat/lng lands in the Indian Ocean
-     * and is caught by the range checks above rather than by a confused rider.
+     * Delivery target, as coordinates.
+     *
+     * Islamabad is around 33.6 N, 73.0 E — a swapped lat/lng lands in the Indian Ocean and
+     * is caught by the range checks above rather than by a confused rider.
      */
     location: coordinates.optional(),
+
+    /**
+     * Delivery target, as text — geocoded server-side (Step 9).
+     *
+     * Either this or `location` satisfies a delivery request. `location` wins when both
+     * are given: a pin states where someone is more precisely than a line of text, and
+     * geocoding an address they also pinned would spend a paid lookup for a worse answer.
+     * The minimum length stops "abc" costing a lookup in order to fail.
+     */
+    addressText: z.string().trim().min(6, 'Please enter a fuller address').max(300).optional(),
 
     // Pickup: the customer names the branch, by id or by code.
     branchId: objectId.optional(),
@@ -63,11 +74,11 @@ export const quoteSchema = z
       .max(100),
   })
   .superRefine((value, ctx) => {
-    if (value.fulfilment === FULFILMENT.DELIVERY && !value.location) {
+    if (value.fulfilment === FULFILMENT.DELIVERY && !value.location && !value.addressText) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['location'],
-        message: 'Delivery requires location { lat, lng }',
+        message: 'Delivery requires either location { lat, lng } or addressText',
       })
     }
 

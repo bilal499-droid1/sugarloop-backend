@@ -13,6 +13,34 @@ const slug = z
 
 export const productSlugParamSchema = z.object({ slug })
 
+/**
+ * "Do you deliver to me, and from which shop?" — answerable before a cart exists, so a
+ * customer finds out they are outside the area before choosing twelve donuts.
+ *
+ * Either coordinates or text. Coordinates come from the browser's own geolocation and need
+ * no geocoder at all; text is geocoded server-side, where the API key lives and the answer
+ * can be cached.
+ */
+export const resolveBranchSchema = z
+  .object({
+    location: z
+      .object({
+        lat: z.coerce.number().min(-90).max(90),
+        lng: z.coerce.number().min(-180).max(180),
+      })
+      .optional(),
+    address: z.string().trim().min(6, 'Please enter a fuller address').max(300).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.location && !value.address) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['address'],
+        message: 'Provide either location { lat, lng } or an address',
+      })
+    }
+  })
+
 export const listProductsSchema = z.object({
   category: z.enum(PRODUCT_CATEGORIES).optional(),
 

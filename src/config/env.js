@@ -34,6 +34,19 @@ const schema = z.object({
    * yet. It is refused at boot in production.
    */
   OTP_TRANSPORT: z.enum(['log', 'whatsapp', 'sms']).default('log'),
+
+  /**
+   * Which geocoder turns a delivery address into coordinates. See
+   * services/geocoding.service.js.
+   *
+   * `google` is the intended production provider and needs GOOGLE_MAPS_API_KEY with
+   * billing enabled. `nominatim` (OpenStreetMap) needs no key and works today, but is
+   * rate-limited and weaker on Pakistani addresses — a stand-in, not an answer.
+   */
+  GEOCODER: z.enum(['google', 'nominatim']).default('nominatim'),
+
+  /** Required when GEOCODER=google. Checked at boot, not at the first checkout. */
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
 })
 
 const parsed = schema.safeParse(process.env)

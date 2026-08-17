@@ -2,6 +2,7 @@ import { ok } from '../views/respond.js'
 import { productView, productListView } from '../views/productView.js'
 import { branchView, branchListView } from '../views/branchView.js'
 import * as catalogueService from '../services/catalogue.service.js'
+import { resolveDeliveryTarget } from '../services/checkout.service.js'
 
 /**
  * Thin by design (plan §2): read the request, call a service, shape the response.
@@ -24,6 +25,30 @@ export async function getProduct(req, res) {
   )
 
   return ok(res, { product: productView(product, { inStock }) })
+}
+
+/**
+ * Which branch delivers to a place, if any.
+ *
+ * Refusal is the interesting case: an address outside every radius comes back as
+ * `OUTSIDE_DELIVERY_AREA` naming the nearest shop and how far it is, so the customer is
+ * told "we are 8.9 km away" rather than a bare no.
+ */
+export async function resolveBranch(req, res) {
+  const { branch, point } = await resolveDeliveryTarget(req.body)
+
+  return ok(res, {
+    branch: branchView(branch),
+    distanceKm: branch.distanceKm,
+    /** Echoed so the client can show what the typed address was understood to mean, and
+     *  can reuse the coordinates at checkout instead of paying for a second lookup. */
+    resolved: {
+      lat: point.lat,
+      lng: point.lng,
+      source: point.source,
+      formattedAddress: point.formattedAddress ?? null,
+    },
+  })
 }
 
 export async function listBranches(req, res) {

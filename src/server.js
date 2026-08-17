@@ -3,12 +3,17 @@ import { env } from './config/env.js'
 import { logger } from './config/logger.js'
 import { connectDatabase, disconnectDatabase } from './config/db.js'
 import { assertTransportIsProductionSafe } from './services/otpDelivery.service.js'
+import { assertGeocoderIsConfigured } from './services/geocoding.service.js'
 
 async function start() {
   // Before anything binds a port: the development OTP transport in production would mean
   // every customer's verification code printed to the logs and no message ever sent.
   // Same reasoning as the JWT placeholder check in config/env.js — refuse to boot.
   assertTransportIsProductionSafe()
+
+  // Likewise GEOCODER=google with no key, which would surface as every delivery address
+  // being rejected at checkout rather than as the configuration error it is.
+  assertGeocoderIsConfigured()
 
   await connectDatabase()
 

@@ -314,14 +314,15 @@ the expensive migration this design exists to avoid.
 | 7 Staff auth + RBAC | ✅ built ahead of order |
 | 8 Order status + stock toggles | ✅ |
 | Customer phone OTP | ✅ pulled forward from sprint 2 — `POST /orders` is gated on it |
-| **9 Geocoding + branch assignment** | ❌ **next** — unblocked, real coordinates are in |
-| 10 Staging deploy | ❌ |
+| 9 Geocoding + branch assignment | ✅ `POST /branches/resolve`, cached, provider-swappable |
+| **10 Staging deploy** | ❌ **next** |
 
-**Step 9 is the last thing blocking a usable delivery checkout.** Today the storefront asks
-the browser for coordinates and reverse-geocodes them in the client against OpenStreetMap,
-which works but puts a customer's location through a third party and cannot be cached or
-billed sensibly. `POST /branches/resolve` moves that behind our own API with a server-held
-Maps key.
+**Geocoding runs on OpenStreetMap until a Maps key exists.** That is a real quality gap,
+not just a config placeholder: Nominatim resolves areas well (`DHA Phase 2 Islamabad`) but
+not individual buildings (`Nadir Arcade` returns nothing), so some customers will be told
+their address cannot be found and pushed to the location button instead. Switching to
+Google is two lines in `.env` — see `GEOCODER` there. Lookups are cached for 90 days, so
+Google's 10,000 free/month is far more than this shop will use.
 
 Sprint 2 and beyond: WhatsApp Cloud API, SMS fallback, BullMQ status timers, the
 unacknowledged-order escalation, PDF invoices, corporate enquiries, daily reports, admin

@@ -11,6 +11,7 @@ import { BranchStock } from '../models/BranchStock.js'
 import { ApiError } from '../utils/ApiError.js'
 import { FULFILMENT } from '../config/constants.js'
 import { priceCart } from './pricing.engine.js'
+import { geocodeAddress } from './geocoding.service.js'
 
 /** Metres, generous — wide enough to find a branch worth reporting a distance for. */
 const SEARCH_RADIUS_METRES = 30_000
@@ -94,15 +95,75 @@ async function resolvePickupBranch({ branchId, branchCode }) {
   return branch
 }
 
-export async function resolveBranch({ fulfilment, location, branchId, branchCode }) {
+/**
+ * Coordinates for a delivery, from whichever the customer gave us.
+ *
+ * `location` wins when both are present: a map pin or a device GPS fix is a more precise
+ * statement of where someone is than a line of text, and geocoding an address they also
+ * pinned would spend a paid lookup to produce a worse answer.
+ */
+export async function resolveDeliveryPoint({ location, address }) {
+  if (location) return { ...location, source: 'coordinates' }
+
+  if (!address) {
+    throw ApiError.badRequest('Delivery needs either coordinates or an address')
+  }
+
+  const geocoded = await geocodeAddress(address)
+
+  if (!geocoded) {
+    throw new ApiError(
+      422,
+      'ADDRESS_NOT_FOUND',
+      'We could not find that address. Please add more detail, or share your location.',
+      { address }
+    )
+  }
+
+  return {
+    lat: geocoded.lat,
+    lng: geocoded.lng,
+    formattedAddress: geocoded.formattedAddress,
+    source: 'address',
+  }
+}
+
+/**
+ * The branch that will fulfil this order.
+ *
+ * For delivery that is decided by WHERE the customer is, never by anything they chose —
+ * branches serve their own 2 km radius and do not cover for each other.
+ */
+export async function resolveBranch({ fulfilment, location, addressText, branchId, branchCode }) {
   if (fulfilment === FULFILMENT.PICKUP) {
     return resolvePickupBranch({ branchId, branchCode })
   }
 
-  // ⚠️ Step 9 will accept a street address here and geocode it to coordinates via Google
-  // Maps. Until that lands the caller supplies { lat, lng } directly — the branch-matching
-  // half is what this function does either way, and it is already correct.
-  return resolveDeliveryBranch(location)
+  /**
+   * `addressText`, NOT `address`. An order request carries both, and they are different
+   * things: `addressText` is the free-text line to geocode, while `address` is the
+   * structured `{ line1, area, city, notes }` object printed for the rider. Reading
+   * `address` here would hand an object to the geocoder.
+   */
+  const point = await resolveDeliveryPoint({ location, address: addressText })
+  const branch = await resolveDeliveryBranch(point)
+
+  // Carried so the order can snapshot the coordinates actually used, which for an
+  // address-only checkout were never in the request.
+  branch.$resolvedPoint = point
+
+  return branch
+}
+
+/**
+ * Public branch resolution for `POST /branches/resolve` — "do you deliver to me, and
+ * from where?", answered before the customer has built a cart.
+ */
+export async function resolveDeliveryTarget({ location, address }) {
+  const point = await resolveDeliveryPoint({ location, address })
+  const branch = await resolveDeliveryBranch(point)
+
+  return { branch, point }
 }
 
 /**

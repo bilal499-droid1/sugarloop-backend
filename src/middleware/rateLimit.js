@@ -57,6 +57,21 @@ export const otpLimiter = rateLimit({
   limit: env.isDevelopment ? 200 : 10,
 })
 
+/**
+ * Address lookup. Public, and the only public endpoint that can reach a **paid** API —
+ * Google bills per geocode once past the monthly free tier, so an unthrottled loop here
+ * spends the client's money rather than merely using their CPU.
+ *
+ * The cache absorbs repeats, so this limit only ever bites on a stream of DISTINCT
+ * addresses, which is not a shape real checkout traffic has. Relaxed in development for
+ * the same reason as the OTP limiter: everyone testing shares one localhost IP.
+ */
+export const geocodeLimiter = rateLimit({
+  ...base,
+  windowMs: 60 * 60_000,
+  limit: env.isDevelopment ? 500 : 60,
+})
+
 /** Login. Slows credential stuffing against staff accounts. */
 export const authLimiter = rateLimit({
   ...base,

@@ -127,6 +127,15 @@ export async function create(request, context = {}, { now = new Date() } = {}) {
 
   const isDelivery = priced.fulfilment === FULFILMENT.DELIVERY
 
+  /**
+   * Where the pricing engine decided this order is going. `$resolvedPoint` is attached by
+   * `resolveBranch` and is authoritative: it is the same point the branch and the 2 km
+   * radius check were computed from, so storing anything else could put a rider outside
+   * the area the order was accepted for. Falls back to the request for the coordinates
+   * path, where the two are identical anyway.
+   */
+  const deliveryPoint = isDelivery ? (branch.$resolvedPoint ?? request.location) : null
+
   const order = await Order.create({
     orderNumber,
     customerId: null, // set once phone-OTP exists (Sprint 2)
@@ -142,9 +151,14 @@ export async function create(request, context = {}, { now = new Date() } = {}) {
           line1: request.address.line1,
           area: request.address.area,
           city: request.address.city,
-          // Snapshotted from the request, not re-derived — this is where the rider goes,
-          // and it must not change if the customer edits a saved address later.
-          location: { type: 'Point', coordinates: [request.location.lng, request.location.lat] },
+          /**
+           * The point the branch was actually chosen from — which for an address-only
+           * checkout was geocoded server-side and was never in the request at all.
+           * Snapshotted rather than re-derived: this is where the rider goes, and it must
+           * not move if the customer edits a saved address, or if a geocoder returns a
+           * different answer next month.
+           */
+          location: { type: 'Point', coordinates: [deliveryPoint.lng, deliveryPoint.lat] },
           notes: request.address.notes,
         }
       : null,
