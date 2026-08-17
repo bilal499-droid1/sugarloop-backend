@@ -3,10 +3,11 @@
 Ordering API for Sugarloop — a Cash-on-Delivery donut shop with four branches in
 Islamabad. Node + Express + Mongoose + Zod on MongoDB, MVC layout, REST at `/api/v1`.
 
-**Status: Sprint 1, roughly 70% complete.** A customer can browse the menu, be quoted a
-price the server computed, and **place a Cash-on-Delivery order**. What is missing before
-this can face the public is phone verification (OTP), notifications, and the staff order
-board. See [Roadmap](#roadmap).
+**Status: Sprint 1, roughly 85% complete.** A customer can browse the menu, be quoted a
+price the server computed, and **place a Cash-on-Delivery order**; a branch can then **work
+that order through to completion** and toggle its own stock. What is missing before this
+can face the public is phone verification (OTP), notifications, automatic branch assignment
+from an address, and a deploy. See [Roadmap](#roadmap).
 
 ---
 
@@ -165,9 +166,55 @@ GET    /staff/users/:id
 PATCH  /staff/users/:id
 POST   /staff/users/:id/password
 DELETE /staff/users/:id              soft delete — deactivates, never removes
+
+GET    /staff/orders                 ?status= &fulfilment= &branchId= &date= &phone=
+GET    /staff/orders/:id             + the transitions this order may make next
+PATCH  /staff/orders/:id/status      { status, reason?, note? }
+
+GET    /staff/stock                  ?branchId= &category= &inStock=
+PATCH  /staff/stock/:productId       { inStock, branchId? }
 ```
 
 Access tokens last 15 minutes; refresh tokens 7 days and rotate on every use.
+
+**Branch scope comes from the token, never the query.** A `branch_manager` reads and moves
+orders at their own branch only; naming another branch's `branchId` is `403`, and another
+branch's order is `404` rather than `403` — confirming an order exists but is not yours is
+the same leak in a politer tone. An admin sees every branch and may narrow to one. Stock is
+per branch, so an admin **must** name one: there is no "all branches" answer to "is this in
+stock".
+
+`date` is a calendar date in `Asia/Karachi` — the day the kitchen means by "today", not the
+one a server on UTC would compute five hours early.
+
+### Order status
+
+```
+placed → confirmed → preparing → out_for_delivery ┐
+                               → ready_for_pickup ┘→ completed
+any non-terminal ──────────────────────────────────→ failed
+```
+
+One step at a time, forwards only — `statusHistory` is a record of what happened, not a
+form to correct. The handover step follows the order's fulfilment: a pickup order can never
+be sent `out_for_delivery`, which is what stops a rider being dispatched to an order that
+carries no address. `GET /staff/orders/:id` returns the legal next moves alongside the
+order, so the board draws one button per transition rather than guessing at the machine.
+
+`failed` is staff-only and terminal, and requires a `reason` from the fixed list —
+`no_answer`, `unreachable`, `bad_address`, `refused_substitute`, `customer_request`,
+`branch_unable`, `other` — with `other` additionally requiring a `note`. Fixed codes, so a
+monthly count by reason is reportable: a spike in `no_answer` means OTP is not filtering
+prank orders well enough.
+
+Completing a COD order sets `payment.status` to `collected` — with cash on delivery,
+completion *is* collection, and an order book where every completed order still reads
+`pending` cannot produce a day's takings.
+
+Transitions are conditional writes. Two managers on a 15s-polling board who click the same
+button get one success and one `409` telling the loser to refresh, rather than two
+transitions appended to one order. Every move and every stock toggle writes an `auditLog`
+row with the actor, the order number or SKU, and the before/after.
 
 ---
 
@@ -181,8 +228,8 @@ npm run check
 
 **API** — a Postman collection in [`postman/`](postman/):
 
-- `sugarloop-simple.postman_collection.json` — 20 plain requests for clicking through
-- `sugarloop-api.postman_collection.json` — 66 requests, 437 assertions, for regression
+- `sugarloop-simple.postman_collection.json` — 36 plain requests for clicking through
+- `sugarloop-api.postman_collection.json` — 111 requests, 726 assertions, for regression
 - `TESTING.md` — every endpoint as a copy-paste request with real ids
 
 ```bash
@@ -208,6 +255,7 @@ src/
   middleware/   auth, rbac, Zod validation, rate limits, error handling
   validators/   a Zod schema per endpoint
   utils/        money (PKR), time (opening hours), ApiError
+  testing/      helpers for the integration suites — a private database per test file
   itemData.js   the 43-product catalogue — seed input, not runtime data
   scripts/      seed.js
 ```
@@ -254,8 +302,8 @@ the expensive migration this design exists to avoid.
 | 5 Pricing engine | ✅ |
 | 6 Orders + numbering | ✅ |
 | 7 Staff auth + RBAC | ✅ built ahead of order |
-| **8 Order status + stock toggles** | ❌ **next** |
-| 9 Geocoding + branch assignment | ❌ unblocked — real coordinates are in |
+| 8 Order status + stock toggles | ✅ |
+| **9 Geocoding + branch assignment** | ❌ **next** — unblocked, real coordinates are in |
 | 10 Staging deploy | ❌ |
 
 Sprint 2 and beyond: customer phone OTP, WhatsApp Cloud API, SMS fallback, BullMQ status

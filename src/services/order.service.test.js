@@ -8,6 +8,7 @@ import { Branch } from '../models/Branch.js'
 import { Product } from '../models/Product.js'
 import { BranchStock } from '../models/BranchStock.js'
 import * as orderService from './order.service.js'
+import { connectTestDatabase, disconnectTestDatabase } from '../testing/mongoTestDb.js'
 
 /**
  * Integration tests. These need a real MongoDB, because what they check — atomic sequence
@@ -17,17 +18,7 @@ import * as orderService from './order.service.js'
  * The suite SKIPS rather than fails when Mongo is unreachable, so `npm test` stays green on
  * a machine without one. CI runs a Mongo service, where these actually execute.
  */
-const MONGO_URI = process.env.MONGODB_TEST_URI ?? 'mongodb://127.0.0.1:27017/sugarloop_test'
-
-let connected = false
-try {
-  await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 2000 })
-  connected = true
-} catch {
-  connected = false
-}
-
-const skip = connected ? false : 'MongoDB unreachable — integration tests skipped'
+const { connected, skip } = await connectTestDatabase('order')
 
 /** Mid-service on a fixed date, so order numbers are predictable. */
 const NOW = new Date('2026-08-10T14:00:00+05:00')
@@ -91,12 +82,7 @@ const request = (overrides = {}) => ({
 
 test('order service', { skip, concurrency: false }, async (t) => {
   t.beforeEach(seedFixtures)
-  t.after(async () => {
-    if (connected) {
-      await mongoose.connection.dropDatabase()
-      await mongoose.disconnect()
-    }
-  })
+  t.after(() => disconnectTestDatabase(connected))
 
   await t.test('numbers an order SL-YYMMDD-NNNN, sequentially', async () => {
     const first = await orderService.create(request(), {}, { now: NOW })

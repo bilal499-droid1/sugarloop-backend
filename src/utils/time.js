@@ -100,6 +100,38 @@ export function businessDateStamp(date = new Date(), timeZone = BUSINESS_TIMEZON
   return `${pad(year % 100)}${pad(month)}${pad(day)}`
 }
 
+/**
+ * The half-open UTC range `[start, end)` covering one local calendar date.
+ *
+ * What the staff order board's `?date=2026-08-13` filter turns into. Computed through the
+ * timezone database rather than as `start + 24h`, for the same reason the rest of this
+ * file is: a day is not always 24 hours long, and the board that quietly loses an hour of
+ * orders is the one nobody notices until the till does not reconcile.
+ *
+ * Half-open so consecutive days neither overlap nor leave a gap — an order placed at
+ * exactly midnight belongs to the day starting, not the day ending.
+ */
+export function businessDayRange(isoDate, timeZone = BUSINESS_TIMEZONE) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate).trim())
+  if (!match) {
+    throw new TypeError(`Invalid date '${isoDate}' — expected 'YYYY-MM-DD'`)
+  }
+
+  const [, year, month, day] = match.map(Number)
+
+  const start = instantFromZonedWallClock({ year, month, day, hour: 0, minute: 0 }, timeZone)
+
+  // Step a day in wall-clock terms, then re-read the calendar, rather than adding 24h to
+  // the instant — the same trick nextOpeningAt uses, and for the same reason.
+  const tomorrow = zonedParts(new Date(start.getTime() + MINUTES_PER_DAY * MS_PER_MINUTE), timeZone)
+  const end = instantFromZonedWallClock(
+    { year: tomorrow.year, month: tomorrow.month, day: tomorrow.day, hour: 0, minute: 0 },
+    timeZone
+  )
+
+  return { start, end }
+}
+
 /** The zone's UTC offset, in ms, at a given instant. */
 function offsetMsAt(date, timeZone) {
   const { year, month, day, hour, minute, second } = zonedParts(date, timeZone)

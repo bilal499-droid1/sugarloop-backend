@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   businessDateStamp,
+  businessDayRange,
   isOpenAt,
   isAcceptingOrdersAt,
   minuteOfDayInZone,
@@ -200,6 +201,51 @@ test('businessDateStamp is the date segment of an order number', async (t) => {
   await t.test('rolls over year end', () => {
     assert.equal(businessDateStamp(new Date('2026-12-31T23:30:00+05:00')), '261231')
     assert.equal(businessDateStamp(new Date('2027-01-01T00:30:00+05:00')), '270101')
+  })
+})
+
+test('businessDayRange bounds a local calendar date', async (t) => {
+  await t.test('starts and ends at Karachi midnight, not UTC midnight', () => {
+    const { start, end } = businessDayRange('2026-08-13')
+
+    assert.equal(start.toISOString(), '2026-08-12T19:00:00.000Z')
+    assert.equal(end.toISOString(), '2026-08-13T19:00:00.000Z')
+  })
+
+  await t.test('is half-open, so consecutive days neither overlap nor gap', () => {
+    const { end } = businessDayRange('2026-08-13')
+    const { start } = businessDayRange('2026-08-14')
+
+    assert.equal(end.getTime(), start.getTime())
+  })
+
+  await t.test('an order at 23:59 Karachi lands in that day, not the next', () => {
+    const { start, end } = businessDayRange('2026-08-13')
+    const lateOrder = pkt(13, '23:59')
+
+    assert.ok(lateOrder >= start && lateOrder < end)
+  })
+
+  await t.test('an order at 01:00 lands in the calendar day, matching the order number', () => {
+    // Deliberately the same rule businessDateStamp uses: 01:00 on the 14th is numbered
+    // 260814, so the board filtered to the 14th must show it. A trading-night grouping
+    // would put it on the 13th and the two would disagree about the same order.
+    const { start, end } = businessDayRange('2026-08-14')
+    const afterMidnight = pkt(14, '01:00')
+
+    assert.ok(afterMidnight >= start && afterMidnight < end)
+    assert.equal(businessDateStamp(afterMidnight), '260814')
+  })
+
+  await t.test('rolls over month and year ends', () => {
+    assert.equal(businessDayRange('2026-08-31').end.toISOString(), '2026-08-31T19:00:00.000Z')
+    assert.equal(businessDayRange('2026-12-31').end.toISOString(), '2026-12-31T19:00:00.000Z')
+  })
+
+  await t.test('rejects anything that is not YYYY-MM-DD', () => {
+    for (const bad of ['13-08-2026', '2026-8-13', 'today', '', '2026-08-13T00:00:00Z']) {
+      assert.throws(() => businessDayRange(bad), TypeError, `should reject '${bad}'`)
+    }
   })
 })
 

@@ -47,6 +47,41 @@ export const TERMINAL_ORDER_STATUSES = Object.freeze([
 ])
 
 /**
+ * The happy path, one step at a time. `services/orderStatus.js` is what reads it.
+ *
+ * Two things are deliberately NOT in this table:
+ *
+ * - **`failed`.** It is reachable from every non-terminal state, so listing it seven
+ *   times would be seven places to forget it. The state machine appends it instead.
+ * - **The choice between `out_for_delivery` and `ready_for_pickup`.** Both are listed
+ *   under `preparing`, but only one is legal for a given order — a pickup order that
+ *   goes `out_for_delivery` sends a rider to an address that does not exist on it. The
+ *   fulfilment filter lives in the state machine, next to the rest of the rules.
+ *
+ * No backward transitions. `statusHistory` is append-only and this is a record of what
+ * happened, not a form to correct — a mis-click is fixed by a note, not by rewriting the
+ * order's past. Skipping ahead is barred for the same reason.
+ */
+export const ORDER_STATUS_FLOW = Object.freeze({
+  [ORDER_STATUS.PLACED]: Object.freeze([ORDER_STATUS.CONFIRMED]),
+  [ORDER_STATUS.CONFIRMED]: Object.freeze([ORDER_STATUS.PREPARING]),
+  [ORDER_STATUS.PREPARING]: Object.freeze([
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.READY_FOR_PICKUP,
+  ]),
+  [ORDER_STATUS.OUT_FOR_DELIVERY]: Object.freeze([ORDER_STATUS.COMPLETED]),
+  [ORDER_STATUS.READY_FOR_PICKUP]: Object.freeze([ORDER_STATUS.COMPLETED]),
+  [ORDER_STATUS.COMPLETED]: Object.freeze([]),
+  [ORDER_STATUS.FAILED]: Object.freeze([]),
+})
+
+/** The handover step, which differs by fulfilment. See ORDER_STATUS_FLOW. */
+export const HANDOVER_STATUSES = Object.freeze({
+  [FULFILMENT.DELIVERY]: ORDER_STATUS.OUT_FOR_DELIVERY,
+  [FULFILMENT.PICKUP]: ORDER_STATUS.READY_FOR_PICKUP,
+})
+
+/**
  * Why an order ended as `failed`. Fixed codes rather than free text so the counts are
  * reportable: a spike in `no_answer` means OTP isn't filtering prank orders well enough.
  */

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b3f1c2d4-5a6e-4f70-9c81-2d3e4f5a6b70",
     "name": "Sugarloop API — v1",
-    "description": "Every endpoint implemented so far (Sprint 1, Steps 1-4 + 7).\n\nRun the whole thing with the Collection Runner, top to bottom — requests depend on variables set by earlier ones (branchId, accessToken, productSlug). Running a single request out of order may fail for that reason alone.\n\nRequires: the API on {{baseUrl}}, MongoDB reachable, and `npm run seed` already run.\n\nNOT YET BUILT (they will 404 — that is expected, not a bug): /checkout/quote, /orders, /auth/otp/*, /enquiries, /staff/orders, /staff/stock, /staff/products, /staff/reports.",
+    "description": "Every endpoint implemented so far (Sprint 1, Steps 1-8).\n\nRun the whole thing with the Collection Runner, top to bottom — requests depend on variables set by earlier ones (branchId, accessToken, productSlug, orderId). Running a single request out of order may fail for that reason alone.\n\nRequires: the API on {{baseUrl}}, MongoDB reachable, and `npm run seed` already run.\n\nNOT YET BUILT (they will 404 — that is expected, not a bug): /auth/otp/*, /enquiries, /branches/resolve, /staff/products, /staff/reports.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -25,7 +25,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/"
+          }
         },
         {
           "name": "Liveness",
@@ -42,7 +46,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health/live" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health/live"
+          }
         },
         {
           "name": "Readiness",
@@ -60,7 +68,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health/ready" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health/ready"
+          }
         }
       ]
     },
@@ -115,7 +127,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches"
+          }
         },
         {
           "name": "Get branch by code",
@@ -136,7 +152,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches/{{branchCode}}" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches/{{branchCode}}"
+          }
         },
         {
           "name": "Get branch by code — lowercase is accepted",
@@ -151,7 +171,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches/dha1" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches/dha1"
+          }
         },
         {
           "name": "Filter by fulfilment",
@@ -171,7 +195,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches?fulfilment=pickup" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches?fulfilment=pickup"
+          }
         }
       ]
     },
@@ -212,7 +240,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products"
+          }
         },
         {
           "name": "Filter: Donuts (acceptance — must be 19)",
@@ -232,7 +264,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?category=Donuts" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?category=Donuts"
+          }
         },
         {
           "name": "Filter: Drinks (acceptance — must be 17)",
@@ -248,7 +284,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?category=Drinks" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?category=Drinks"
+          }
         },
         {
           "name": "Filter: Croissants (must be 4)",
@@ -264,7 +304,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?category=Croissants" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?category=Croissants"
+          }
         },
         {
           "name": "Filter: Sandwiches (must be 3)",
@@ -283,7 +327,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?category=Sandwiches" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?category=Sandwiches"
+          }
         },
         {
           "name": "Filter: type = Crafted Donuts",
@@ -306,7 +354,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?type=Crafted Donuts" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?type=Crafted Donuts"
+          }
         },
         {
           "name": "Filter: box-eligible only",
@@ -329,7 +381,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?boxEligible=true" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?boxEligible=true"
+          }
         },
         {
           "name": "Limit is honoured",
@@ -345,7 +401,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?limit=5" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?limit=5"
+          }
         },
         {
           "name": "Product detail",
@@ -381,7 +441,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/{{productSlug}}" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/{{productSlug}}"
+          }
         },
         {
           "name": "Per-branch stock join",
@@ -406,7 +470,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?branchId={{branchId}}" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?branchId={{branchId}}"
+          }
         },
         {
           "name": "Product detail, per branch",
@@ -451,7 +519,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products"
+          }
         },
         {
           "name": "Delivery quote — server prices it",
@@ -484,7 +556,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
@@ -513,7 +590,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2, \"price\": 1, \"lineTotal\": 2 }\n  ]\n}"
@@ -540,7 +622,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA1\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
@@ -572,7 +659,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    {\n      \"kind\": \"box\",\n      \"boxSize\": 4,\n      \"productIds\": [\"{{kitkatId}}\", \"{{kitkatId}}\", \"{{kitkatId}}\", \"{{kitkatId}}\"]\n    }\n  ]\n}"
@@ -597,7 +689,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    {\n      \"kind\": \"box\",\n      \"boxSize\": 4,\n      \"productIds\": [\"{{kitkatId}}\", \"{{lotusId}}\", \"{{oreoId}}\", \"{{lotusId}}\"]\n    }\n  ]\n}"
@@ -626,7 +723,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{oreoId}}\", \"qty\": 2 }\n  ]\n}"
@@ -655,7 +757,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.7104, \"lng\": 73.0551 },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
@@ -678,7 +785,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    { \"kind\": \"box\", \"boxSize\": 4, \"productIds\": [\"{{kitkatId}}\", \"{{lotusId}}\"] }\n  ]\n}"
@@ -704,7 +816,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
@@ -719,13 +836,20 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('422', () => pm.response.to.have.status(422))"]
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": []\n}"
@@ -757,7 +881,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ]\n}"
@@ -810,7 +939,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"address\": {\n    \"line1\": \"House 12, Street 4\",\n    \"area\": \"Sector E\",\n    \"notes\": \"Blue gate\"\n  },\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\"\n  },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": {{quotedTotal}}\n}"
@@ -891,7 +1025,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Stale Quote\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 50000\n}"
@@ -914,7 +1053,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"contact\": { \"name\": \"No Address\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 95800\n}"
@@ -940,7 +1084,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Bad Phone\", \"phone\": \"12345\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 85800\n}"
@@ -955,7 +1104,9 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('404', () => pm.response.to.have.status(404))"]
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404))"
+                ]
               }
             }
           ],
@@ -963,6 +1114,1361 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/orders/SL-990101-9999?phone=03001234567"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2d · Staff order board",
+      "item": [
+        {
+          "name": "Sign in as admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.collectionVariables.set('adminToken', pm.response.json().data.accessToken)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/login"
+          }
+        },
+        {
+          "name": "Login as the branch that owns the order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.collectionVariables.set('dha2Token', d.accessToken)",
+                  "pm.collectionVariables.set('dha2BranchId', d.staffUser.branch.id)",
+                  "",
+                  "// The order placed in folder 2c was quoted against DHA2 coordinates, so this is",
+                  "// the manager who may work it. {{managerToken}} is DHA1 and is used below to",
+                  "// prove that they may not.",
+                  "pm.test('is the DHA2 manager', () => {",
+                  "  pm.expect(d.staffUser.role).to.eql('branch_manager')",
+                  "  pm.expect(d.staffUser.branch.code).to.eql('DHA2')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{dha2ManagerEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/login"
+          }
+        },
+        {
+          "name": "The board lists the order just placed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const body = pm.response.json()",
+                  "const mine = body.data.find((o) => o.orderNumber === pm.collectionVariables.get('orderNumber'))",
+                  "",
+                  "pm.test('the order from folder 2c is on the board', () => pm.expect(mine).to.not.be.undefined)",
+                  "pm.collectionVariables.set('orderId', mine.id)",
+                  "",
+                  "pm.test('scoped to this manager\\'s branch without being asked', () => {",
+                  "  body.data.forEach((o) => pm.expect(o.branch.code).to.eql('DHA2'))",
+                  "})",
+                  "pm.test('cursor pagination meta', () => {",
+                  "  pm.expect(body.meta).to.have.property('nextCursor')",
+                  "  pm.expect(body.meta).to.have.property('hasMore')",
+                  "})",
+                  "",
+                  "// The staff view carries what the customer view deliberately withholds.",
+                  "pm.test('staff see the working context a customer does not', () => {",
+                  "  pm.expect(mine).to.have.property('id')",
+                  "  pm.expect(mine).to.have.property('branchId')",
+                  "  pm.expect(mine).to.have.property('statusHistory')",
+                  "  pm.expect(mine).to.have.property('distanceKm')",
+                  "  pm.expect(mine.address.location.lat).to.be.a('number')",
+                  "})",
+                  "pm.test('but meta stays internal even here', () => {",
+                  "  pm.expect(mine).to.not.have.property('meta')",
+                  "  pm.expect(pm.response.text()).to.not.include('userAgent')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?status=placed&limit=50"
+          }
+        },
+        {
+          "name": "One order, with the moves it may make next",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "",
+                  "pm.test('still placed', () => pm.expect(d.order.status).to.eql('placed'))",
+                  "",
+                  "// The board draws one button per entry rather than guessing at the state",
+                  "// machine and being refused by the server.",
+                  "pm.test('offers exactly confirmed and failed', () => {",
+                  "  pm.expect(d.transitions.allowed).to.eql(['confirmed', 'failed'])",
+                  "  pm.expect(d.transitions.isTerminal).to.be.false",
+                  "})",
+                  "pm.test('the trail starts with the system placing it', () => {",
+                  "  pm.expect(d.order.statusHistory).to.have.lengthOf(1)",
+                  "  pm.expect(d.order.statusHistory[0].status).to.eql('placed')",
+                  "  pm.expect(d.order.statusHistory[0].by).to.eql('system')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Skipping ahead is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('names what was legal instead', () => {",
+                  "  pm.expect(e.code).to.eql('CONFLICT')",
+                  "  pm.expect(e.details.from).to.eql('placed')",
+                  "  pm.expect(e.details.allowed).to.eql(['confirmed', 'failed'])",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Failing without a reason is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Fixed reason codes are what make a monthly count by reason reportable; a",
+                  "// failed order with no reason is invisible in it.",
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422))",
+                  "const e = pm.response.json().error",
+                  "pm.test('points at the missing field', () => {",
+                  "  pm.expect(e.code).to.eql('VALIDATION_ERROR')",
+                  "  pm.expect(e.details[0].field).to.eql('reason')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Confirm it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "",
+                  "pm.test('moved to confirmed', () => pm.expect(d.order.status).to.eql('confirmed'))",
+                  "pm.test('next moves are preparing or failed', () => {",
+                  "  pm.expect(d.transitions.allowed).to.eql(['preparing', 'failed'])",
+                  "})",
+                  "",
+                  "const last = d.order.statusHistory[d.order.statusHistory.length - 1]",
+                  "pm.test('the trail names the staff member, not the system', () => {",
+                  "  pm.expect(d.order.statusHistory).to.have.lengthOf(2)",
+                  "  pm.expect(last.status).to.eql('confirmed')",
+                  "  pm.expect(last.by).to.match(/^[0-9a-f]{24}$/)",
+                  "  pm.expect(last.note).to.eql('Rang the customer to confirm the address')",
+                  "})",
+                  "pm.test('still unpaid — cash arrives with the donuts', () => {",
+                  "  pm.expect(d.order.payment.status).to.eql('pending')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\",\n  \"note\": \"Rang the customer to confirm the address\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Re-sending the same status is a conflict, not a silent no-op",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A double-click, or a board polling stale data. Told apart from an illegal",
+                  "// move because the fix differs: refresh, versus \"not yours to move yet\".",
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409))",
+                  "pm.test('says it is already there', () => {",
+                  "  pm.expect(pm.response.json().error.message).to.include('already')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Into the kitchen",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.test('preparing', () => pm.expect(d.order.status).to.eql('preparing'))",
+                  "",
+                  "// This is a delivery order, so the handover step is the rider, never the counter.",
+                  "pm.test('the handover offered follows the fulfilment', () => {",
+                  "  pm.expect(d.order.fulfilment).to.eql('delivery')",
+                  "  pm.expect(d.transitions.allowed).to.eql(['out_for_delivery', 'failed'])",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"preparing\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "A delivery order is never marked ready for pickup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('the refusal names the fulfilment that caused it', () => {",
+                  "  pm.expect(e.details.fulfilment).to.eql('delivery')",
+                  "  pm.expect(e.details.allowed).to.include('out_for_delivery')",
+                  "  pm.expect(e.details.allowed).to.not.include('ready_for_pickup')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ready_for_pickup\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Out with the rider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.test('out for delivery', () => pm.expect(d.order.status).to.eql('out_for_delivery'))",
+                  "pm.test('only completion or failure remain', () => {",
+                  "  pm.expect(d.transitions.allowed).to.eql(['completed', 'failed'])",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"out_for_delivery\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Complete it — on COD, completion is collection",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "",
+                  "pm.test('completed', () => pm.expect(d.order.status).to.eql('completed'))",
+                  "",
+                  "// An order book where every completed order still reads `pending` cannot",
+                  "// produce a day's takings, which is the first report the client will ask for.",
+                  "pm.test('the cash is recorded as collected', () => {",
+                  "  pm.expect(d.order.payment.status).to.eql('collected')",
+                  "})",
+                  "pm.test('terminal — no buttons left to draw', () => {",
+                  "  pm.expect(d.transitions.allowed).to.eql([])",
+                  "  pm.expect(d.transitions.isTerminal).to.be.true",
+                  "})",
+                  "pm.test('the whole trail is on the order', () => {",
+                  "  const path = d.order.statusHistory.map((e) => e.status)",
+                  "  pm.expect(path).to.eql(['placed', 'confirmed', 'preparing', 'out_for_delivery', 'completed'])",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "A finished order cannot be moved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('nothing leaves a terminal state', () => {",
+                  "  pm.expect(e.details.from).to.eql('completed')",
+                  "  pm.expect(e.details.allowed).to.eql([])",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"reason\": \"no_answer\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "The customer sees the finished order, and still no internals",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const o = pm.response.json().data.order",
+                  "pm.test('status reached the customer view', () => pm.expect(o.status).to.eql('completed'))",
+                  "pm.test('payment shows as collected', () => pm.expect(o.payment.status).to.eql('collected'))",
+                  "",
+                  "// The views layer is the only thing standing between the trail and a client.",
+                  "pm.test('the staff trail is not published', () => {",
+                  "  pm.expect(o).to.not.have.property('statusHistory')",
+                  "  pm.expect(o).to.not.have.property('branchId')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{orderNumber}}?phone=03001234567"
+          }
+        },
+        {
+          "name": "A second order, to fail — quote it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const q = pm.response.json().data.quote",
+                  "pm.collectionVariables.set('failTotal', q.totals.grandTotal.amount)",
+                  "pm.test('Rs 858 for pickup — no delivery fee', () => {",
+                  "  pm.expect(q.totals.grandTotal.amount).to.eql(85800)",
+                  "  pm.expect(q.totals.deliveryFee.amount).to.eql(0)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{kitkatId}}\",\n      \"qty\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "Place it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201))",
+                  "const o = pm.response.json().data.order",
+                  "pm.collectionVariables.set('failOrderNumber', o.orderNumber)",
+                  "pm.test('pickup order carries no address', () => {",
+                  "  pm.expect(o.address).to.be.null",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": {\n    \"name\": \"Bilal Ahmed\",\n    \"phone\": \"03009876543\"\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{kitkatId}}\",\n      \"qty\": 2\n    }\n  ],\n  \"expectedTotal\": {{failTotal}}\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "Find it on the board",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const o = pm.response.json().data.find((x) => x.orderNumber === pm.collectionVariables.get('failOrderNumber'))",
+                  "pm.test('the fulfilment filter found it', () => pm.expect(o).to.not.be.undefined)",
+                  "pm.collectionVariables.set('failOrderId', o.id)",
+                  "",
+                  "pm.test('a pickup order is offered the counter, not the rider', () => {",
+                  "  pm.expect(o.fulfilment).to.eql('pickup')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?status=placed&fulfilment=pickup&limit=50"
+          }
+        },
+        {
+          "name": "Reason 'other' without a note is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 'other' means none of the codes fit, which is only useful if the person who",
+                  "// chose it says what did happen.",
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422))",
+                  "pm.test('points at the missing note', () => {",
+                  "  pm.expect(pm.response.json().error.details[0].field).to.eql('note')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"reason\": \"other\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{failOrderId}}/status"
+          }
+        },
+        {
+          "name": "Fail it with a reason from the fixed list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "",
+                  "pm.test('failed, with the reason on the order', () => {",
+                  "  pm.expect(d.order.status).to.eql('failed')",
+                  "  pm.expect(d.order.failureReason).to.eql('no_answer')",
+                  "})",
+                  "pm.test('and on the event that caused it', () => {",
+                  "  const last = d.order.statusHistory[d.order.statusHistory.length - 1]",
+                  "  pm.expect(last.reason).to.eql('no_answer')",
+                  "  pm.expect(last.note).to.eql('Called four times, phone off')",
+                  "})",
+                  "",
+                  "// Revenue reports exclude failed orders, so the cash must not read collected.",
+                  "pm.test('no cash was collected', () => {",
+                  "  pm.expect(d.order.payment.status).to.eql('pending')",
+                  "})",
+                  "pm.test('terminal', () => pm.expect(d.transitions.isTerminal).to.be.true)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"reason\": \"no_answer\",\n  \"note\": \"Called four times, phone off\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{failOrderId}}/status"
+          }
+        },
+        {
+          "name": "The customer is told why",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const o = pm.response.json().data.order",
+                  "pm.test('the reason reaches the person who is owed it', () => {",
+                  "  pm.expect(o.status).to.eql('failed')",
+                  "  pm.expect(o.failureReason).to.eql('no_answer')",
+                  "})",
+                  "pm.test('but not who recorded it', () => {",
+                  "  pm.expect(o).to.not.have.property('statusHistory')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{failOrderNumber}}?phone=03009876543"
+          }
+        },
+        {
+          "name": "Filter the board by date — the kitchen's today",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Resolved in Asia/Karachi, not on the server clock. Computed here the same way",
+                  "// so the assertion cannot agree with a bug in the server.",
+                  "const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })",
+                  "pm.collectionVariables.set('today', today)",
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('at least the two orders this run placed', () => {",
+                  "  pm.expect(pm.response.json().data.length).to.be.at.least(2)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?limit=50"
+          }
+        },
+        {
+          "name": "Today's orders are there; 2020's are not",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const numbers = pm.response.json().data.map((o) => o.orderNumber)",
+                  "pm.test('both orders from this run are on today\\'s board', () => {",
+                  "  pm.expect(numbers).to.include(pm.collectionVariables.get('orderNumber'))",
+                  "  pm.expect(numbers).to.include(pm.collectionVariables.get('failOrderNumber'))",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?date={{today}}&limit=50"
+          }
+        },
+        {
+          "name": "A past date is empty",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('no orders that day', () => pm.expect(pm.response.json().data).to.eql([]))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?date=2020-01-01"
+          }
+        },
+        {
+          "name": "A malformed date is rejected, not guessed at",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422))",
+                  "pm.test('names the field', () => {",
+                  "  pm.expect(pm.response.json().error.details[0].field).to.eql('date')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?date=13-08-2026"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2e · Stock toggles",
+      "item": [
+        {
+          "name": "The stock sheet for my own branch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "",
+                  "pm.test('scoped to DHA2 without being asked', () => pm.expect(d.branch.code).to.eql('DHA2'))",
+                  "",
+                  "// Driven off the product list, not the stock rows: a manager needs to see the",
+                  "// items nobody has ever toggled, and those are exactly the ones with no row.",
+                  "pm.test('every sellable product, toggled or not', () => {",
+                  "  pm.expect(d.items).to.have.lengthOf(43)",
+                  "})",
+                  "pm.test('each row carries availability and when it last moved', () => {",
+                  "  pm.expect(d.items[0]).to.have.property('inStock')",
+                  "  pm.expect(d.items[0]).to.have.property('stockUpdatedAt')",
+                  "})",
+                  "",
+                  "// Same withholding as the public menu — one product shape, one place to leak from.",
+                  "pm.test('no Cloudinary handles or dormant FBR fields', () => {",
+                  "  pm.expect(pm.response.text()).to.not.include('publicId')",
+                  "  pm.expect(pm.response.text()).to.not.include('pctCode')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock"
+          }
+        },
+        {
+          "name": "An admin must say which branch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// There is no \"all branches\" answer to \"is this in stock\", and silently picking",
+                  "// one would let a toggle land somewhere nobody looked.",
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422))",
+                  "pm.test('names branchId', () => {",
+                  "  pm.expect(pm.response.json().error.details[0].field).to.eql('branchId')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock"
+          }
+        },
+        {
+          "name": "Naming one works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('the sheet names the branch it describes', () => {",
+                  "  pm.expect(pm.response.json().data.branch.code).to.eql('DHA2')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock?branchId={{dha2BranchId}}"
+          }
+        },
+        {
+          "name": "Narrow to one category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const items = pm.response.json().data.items",
+                  "pm.test('4 croissants', () => pm.expect(items).to.have.lengthOf(4))",
+                  "pm.test('nothing else crept in', () => {",
+                  "  items.forEach((i) => pm.expect(i.category).to.eql('Croissants'))",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock?branchId={{dha2BranchId}}&category=Croissants"
+          }
+        },
+        {
+          "name": "Mark an item sold out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "",
+                  "pm.test('sold out at DHA2', () => {",
+                  "  pm.expect(d.branch.code).to.eql('DHA2')",
+                  "  pm.expect(d.item.inStock).to.be.false",
+                  "})",
+                  "pm.test('and it records who flipped it', () => {",
+                  "  pm.expect(d.item.stockUpdatedBy).to.match(/^[0-9a-f]{24}$/)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": false\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{lotusId}}"
+          }
+        },
+        {
+          "name": "The public menu agrees, at that branch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const lotus = pm.response.json().data.find((p) => p.slug === 'lotus')",
+                  "pm.test('a customer at DHA2 sees it sold out', () => pm.expect(lotus.inStock).to.be.false)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?branchId={{dha2BranchId}}"
+          }
+        },
+        {
+          "name": "And nowhere else — price is global, stock is not",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const other = pm.response.json().data.find((b) => b.code !== 'DHA2')",
+                  "pm.collectionVariables.set('otherBranchId', other.id)",
+                  "pm.collectionVariables.set('otherBranchCode', other.code)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches"
+          }
+        },
+        {
+          "name": "The same item is still on sale at another branch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const lotus = pm.response.json().data.find((p) => p.slug === 'lotus')",
+                  "",
+                  "// The entire reason BranchStock is its own collection: an empty tray at DHA2",
+                  "// must not hide the item across the city.",
+                  "pm.test('an empty tray at one branch does not hide it citywide', () => {",
+                  "  pm.expect(lotus.inStock).to.be.true",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?branchId={{otherBranchId}}"
+          }
+        },
+        {
+          "name": "Checkout refuses the sold-out item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409))",
+                  "const e = pm.response.json().error",
+                  "pm.test('names the item, so a UI can explain itself', () => {",
+                  "  pm.expect(e.code).to.eql('ITEMS_UNAVAILABLE')",
+                  "  pm.expect(e.details.outOfStock).to.include('Lotus')",
+                  "  pm.expect(e.details.branchCode).to.eql('DHA2')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{lotusId}}\",\n      \"qty\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote"
+          }
+        },
+        {
+          "name": "The sold-out view is the dashboard default",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const items = pm.response.json().data.items",
+                  "pm.test('only what is actually out', () => {",
+                  "  items.forEach((i) => pm.expect(i.inStock).to.be.false)",
+                  "  pm.expect(items.map((i) => i.slug)).to.include('lotus')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock?inStock=false"
+          }
+        },
+        {
+          "name": "Setting the value it already has is a no-op, not an error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A double-tap on a phone in a hot kitchen. Idempotent by design — which is why",
+                  "// the endpoint takes a value rather than flipping whatever it finds.",
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('still sold out', () => pm.expect(pm.response.json().data.item.inStock).to.be.false)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": false\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{lotusId}}"
+          }
+        },
+        {
+          "name": "Put it back (leaves the database as it was found)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('back on sale, so this collection is re-runnable', () => {",
+                  "  pm.expect(pm.response.json().data.item.inStock).to.be.true",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": true\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{lotusId}}"
+          }
+        },
+        {
+          "name": "An unknown product → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": false\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/000000000000000000000000"
+          }
+        },
+        {
+          "name": "A malformed product id → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422))",
+                  "pm.test('names productId', () => {",
+                  "  pm.expect(pm.response.json().error.details[0].field).to.eql('productId')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": false\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/not-an-id"
+          }
+        },
+        {
+          "name": "A missing inStock → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422))",
+                  "pm.test('names inStock', () => {",
+                  "  pm.expect(pm.response.json().error.details[0].field).to.eql('inStock')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{dha2Token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{lotusId}}"
           }
         }
       ]
@@ -998,7 +2504,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
@@ -1027,7 +2538,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/auth/me"
           }
         },
@@ -1049,8 +2565,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/staff/auth/refresh"
           }
         },
@@ -1076,7 +2600,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{managerEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
@@ -1115,7 +2644,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users"
           }
         },
@@ -1151,8 +2685,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -1177,7 +2717,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}"
           }
         },
@@ -1198,10 +2743,19 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"QA Manager (renamed)\"\n}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QA Manager (renamed)\"\n}"
+            },
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}"
           }
         },
@@ -1222,10 +2776,19 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}"
           }
         },
@@ -1236,17 +2799,28 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('200', () => pm.response.to.have.status(200))"]
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))"
+                ]
               }
             }
           ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"password\": \"AnotherQaPassword99!\"\n}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"AnotherQaPassword99!\"\n}"
+            },
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}/password"
           }
         },
@@ -1271,10 +2845,19 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"password\": \"short\"\n}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"short\"\n}"
+            },
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}/password"
           }
         },
@@ -1296,7 +2879,12 @@
           ],
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}"
           }
         }
@@ -1319,7 +2907,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/staff/users" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/staff/users"
+          }
         },
         {
           "name": "Garbage token → 401",
@@ -1339,7 +2931,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer not.a.real.token" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer not.a.real.token"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users"
           }
         },
@@ -1361,7 +2958,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{managerToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users"
           }
         },
@@ -1385,7 +2987,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"definitely-not-the-password\"\n}"
@@ -1411,7 +3018,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"nobody@sugarloop.pk\",\n  \"password\": \"definitely-not-the-password\"\n}"
@@ -1434,9 +3046,177 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"whatever\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"whatever\"\n}"
+            },
             "url": "{{baseUrl}}/staff/auth/login"
+          }
+        },
+        {
+          "name": "Branch manager cannot list another branch's orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// {{managerToken}} is DHA1. The step 7 acceptance check, now that there are",
+                  "// orders to prove it against: scope comes from the token, never the query.",
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403))",
+                  "pm.test('refused rather than silently re-scoped', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?branchId={{dha2BranchId}}"
+          }
+        },
+        {
+          "name": "Another branch's order is 404, not 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Confirming that an order exists but belongs to someone else is the same leak",
+                  "// in a politer tone.",
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Branch manager cannot move another branch's order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Branch manager cannot toggle another branch's stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403))",
+                  "pm.test('nothing was written', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": false,\n  \"branchId\": \"{{dha2BranchId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{lotusId}}"
+          }
+        },
+        {
+          "name": "The order board needs a token like everything else",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/staff/orders"
+          }
+        },
+        {
+          "name": "So does the stock sheet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/staff/stock"
           }
         }
       ]
@@ -1462,7 +3242,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/does-not-exist" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/does-not-exist"
+          }
         },
         {
           "name": "Malformed slug → 422",
@@ -1480,7 +3264,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/Not_A_Slug" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/Not_A_Slug"
+          }
         },
         {
           "name": "Category outside the enum → 422",
@@ -1495,7 +3283,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?category=Pizza" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?category=Pizza"
+          }
         },
         {
           "name": "Malformed branchId → 422",
@@ -1504,11 +3296,17 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('422', () => pm.response.to.have.status(422))"]
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?branchId=nope" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?branchId=nope"
+          }
         },
         {
           "name": "Unknown branchId → 404, not a silent full menu",
@@ -1539,11 +3337,17 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('422', () => pm.response.to.have.status(422))"]
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?limit=999" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?limit=999"
+          }
         },
         {
           "name": "Unknown branch code → 404",
@@ -1552,11 +3356,17 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('404', () => pm.response.to.have.status(404))"]
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404))"
+                ]
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches/ZZ9" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches/ZZ9"
+          }
         },
         {
           "name": "Unknown route → 404",
@@ -1575,7 +3385,11 @@
               }
             }
           ],
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/nope/not/a/route" }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/nope/not/a/route"
+          }
         },
         {
           "name": "Not-yet-built endpoints are absent (expected 404)",
@@ -1585,8 +3399,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Documents the boundary of what is built. When orders land, this flips to",
-                  "// failing — which is the reminder to extend this collection.",
+                  "// Documents the boundary of what is built. When OTP lands, this flips to failing —",
+                  "// which is the reminder to extend this collection.",
                   "pm.test('POST /auth/otp/request is not implemented yet', () => pm.response.to.have.status(404))"
                 ]
               }
@@ -1594,8 +3408,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/auth/otp/request"
           }
         }
@@ -1620,8 +3442,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/staff/auth/logout"
           }
         },
@@ -1640,8 +3470,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/staff/auth/refresh"
           }
         }
@@ -1674,22 +3512,117 @@
     }
   ],
   "variable": [
-    { "key": "baseUrl", "value": "http://127.0.0.1:4000/api/v1" },
-    { "key": "adminEmail", "value": "admin@sugarloop.pk" },
-    { "key": "managerEmail", "value": "dha1.manager@sugarloop.pk" },
-    { "key": "adminPassword", "value": "CHANGE-ME" },
-    { "key": "accessToken", "value": "" },
-    { "key": "managerToken", "value": "" },
-    { "key": "branchId", "value": "" },
-    { "key": "branchCode", "value": "" },
-    { "key": "productSlug", "value": "" },
-    { "key": "productId", "value": "" },
-    { "key": "qaEmail", "value": "" },
-    { "key": "qaStaffId", "value": "" },
-    { "key": "kitkatId", "value": "" },
-    { "key": "lotusId", "value": "" },
-    { "key": "oreoId", "value": "" },
-    { "key": "quotedTotal", "value": "" },
-    { "key": "orderNumber", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4000/api/v1"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@sugarloop.pk"
+    },
+    {
+      "key": "managerEmail",
+      "value": "dha1.manager@sugarloop.pk"
+    },
+    {
+      "key": "adminPassword",
+      "value": "CHANGE-ME"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    },
+    {
+      "key": "branchId",
+      "value": ""
+    },
+    {
+      "key": "branchCode",
+      "value": ""
+    },
+    {
+      "key": "productSlug",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "qaEmail",
+      "value": ""
+    },
+    {
+      "key": "qaStaffId",
+      "value": ""
+    },
+    {
+      "key": "kitkatId",
+      "value": ""
+    },
+    {
+      "key": "lotusId",
+      "value": ""
+    },
+    {
+      "key": "oreoId",
+      "value": ""
+    },
+    {
+      "key": "quotedTotal",
+      "value": ""
+    },
+    {
+      "key": "orderNumber",
+      "value": ""
+    },
+    {
+      "key": "dha2ManagerEmail",
+      "value": "dha2.manager@sugarloop.pk"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "dha2Token",
+      "value": ""
+    },
+    {
+      "key": "dha2BranchId",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "failTotal",
+      "value": ""
+    },
+    {
+      "key": "failOrderNumber",
+      "value": ""
+    },
+    {
+      "key": "failOrderId",
+      "value": ""
+    },
+    {
+      "key": "today",
+      "value": ""
+    },
+    {
+      "key": "otherBranchId",
+      "value": ""
+    },
+    {
+      "key": "otherBranchCode",
+      "value": ""
+    }
   ]
 }

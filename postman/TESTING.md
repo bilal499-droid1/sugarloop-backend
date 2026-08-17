@@ -829,6 +829,292 @@ Sets `isActive: false`. The row stays so the audit trail still resolves.
 
 ---
 
+# 5b · The order board — staff token required
+
+Both roles work this board. What differs is **scope, and scope comes from the token**: an
+admin sees all four branches, a branch manager sees their own and nothing else. Log in at
+**4.1** (admin) or **4.2** (manager).
+
+You need an order to work on — place one at **3c.2** first, and note which branch it landed
+at. A manager for a different branch will see an empty board, which is the rule working.
+
+### 5b.1 Today's board
+```
+GET
+http://localhost:4000/api/v1/staff/orders
+```
+**Headers**
+```
+Authorization: Bearer PASTE_YOUR_TOKEN_HERE
+```
+**Copy `data[0].id`** — the status requests below need the order's `id`, not its number.
+
+The staff view carries what the customer view withholds: `id`, `branchId`, `distanceKm`,
+the rider's `address.location`, the customer's email, and the full `statusHistory` naming
+whoever caused each move. `meta.ip` and `meta.userAgent` stay internal even here.
+
+### 5b.2 Filter it
+```
+GET
+http://localhost:4000/api/v1/staff/orders?status=placed
+GET
+http://localhost:4000/api/v1/staff/orders?fulfilment=delivery
+GET
+http://localhost:4000/api/v1/staff/orders?phone=03001234567
+GET
+http://localhost:4000/api/v1/staff/orders?limit=10
+```
+
+`date` is a calendar date in **Asia/Karachi** — the day the kitchen means by "today", not
+the one a server on UTC would compute five hours early:
+```
+GET
+http://localhost:4000/api/v1/staff/orders?date=2026-08-13
+```
+
+An admin — and only an admin — may narrow to one branch:
+```
+GET
+http://localhost:4000/api/v1/staff/orders?branchId=6a7c2fbe9758de53ab6f5b92
+```
+
+Lists are cursor-paginated. `meta.nextCursor` feeds the next page:
+```
+GET
+http://localhost:4000/api/v1/staff/orders?limit=2&cursor=PASTE_NEXT_CURSOR_HERE
+```
+
+### 5b.3 One order, and what it may do next
+```
+GET
+http://localhost:4000/api/v1/staff/orders/PASTE_ORDER_ID_HERE
+```
+**Headers**
+```
+Authorization: Bearer PASTE_YOUR_TOKEN_HERE
+```
+Returns `data.order` plus `data.transitions`:
+```json
+{
+  "allowed": ["confirmed", "failed"],
+  "isTerminal": false
+}
+```
+That is the list of legal next moves. Draw one button per entry rather than guessing at
+the state machine and being refused by the server.
+
+### 5b.4 Move it forward
+
+```
+placed → confirmed → preparing → out_for_delivery ┐
+                               → ready_for_pickup ┘→ completed
+any non-terminal ──────────────────────────────────→ failed
+```
+
+One step at a time, forwards only — `statusHistory` is a record of what happened, not a
+form to correct.
+
+```
+PATCH
+http://localhost:4000/api/v1/staff/orders/PASTE_ORDER_ID_HERE/status
+```
+**Headers**
+```
+Content-Type: application/json
+Authorization: Bearer PASTE_YOUR_TOKEN_HERE
+```
+**Body**
+```json
+{
+  "status": "confirmed",
+  "note": "Rang the customer to confirm the address"
+}
+```
+`note` is optional on any move and goes onto the history event. Then repeat with
+`"preparing"`, then the handover step, then `"completed"`.
+
+**The handover step follows the fulfilment.** A delivery order goes `out_for_delivery`; a
+pickup order goes `ready_for_pickup`. Sending the wrong one is a `409` — that is what stops
+a rider being dispatched to an order that carries no address at all.
+
+### 5b.5 Completing a COD order collects the cash
+```json
+{ "status": "completed" }
+```
+The response comes back with `payment.status: "collected"`. With cash on delivery,
+completion *is* collection — an order book where every completed order still reads
+`pending` cannot produce a day's takings.
+
+`transitions.allowed` is now `[]` and `isTerminal` is `true`.
+
+### 5b.6 Or fail it — staff only, terminal, reason mandatory
+```
+PATCH
+http://localhost:4000/api/v1/staff/orders/PASTE_ORDER_ID_HERE/status
+```
+```json
+{
+  "status": "failed",
+  "reason": "no_answer",
+  "note": "Called four times, phone off"
+}
+```
+
+| Reason code | Meaning |
+|---|---|
+| `no_answer` | Customer didn't answer the door / phone |
+| `unreachable` | Phone off, address not findable |
+| `bad_address` | Address fake, incomplete, or outside the 2 km zone |
+| `refused_substitute` | Item sold out, customer declined the alternative |
+| `customer_request` | Customer asked to drop it — staff-recorded, not self-service |
+| `branch_unable` | Kitchen couldn't fulfil — power cut, equipment, staffing |
+| `other` | **Note required** |
+
+Fixed codes rather than free text so the counts are reportable: a spike in `no_answer`
+means OTP isn't filtering prank orders well enough. The reason lands on `failureReason`
+(terminal and reportable) and on the history event, and the customer is told it — they are
+owed the reason. `payment.status` stays `pending`; failed orders are excluded from revenue.
+
+### 5b.7 The refusals
+
+| Body | Result |
+|---|---|
+| `{"status":"completed"}` on a `placed` order | `409` — skipping ahead, with `details.allowed` |
+| `{"status":"confirmed"}` on a `confirmed` order | `409` — already there; a double-click, not an attack |
+| `{"status":"out_for_delivery"}` on a pickup order | `409` — with `details.fulfilment` naming why |
+| `{"status":"failed"}` | `422` — a reason is mandatory |
+| `{"status":"failed","reason":"other"}` | `422` — `other` needs a note |
+| `{"status":"confirmed","reason":"no_answer"}` | `422` — a reason only belongs on a failure |
+| anything on a `completed` or `failed` order | `409` — terminal |
+
+**Two people, one button.** Open the same order in two tabs and PATCH the same transition
+from both. One gets `200`, the other `409` — the write is conditional on the order still
+being in the state that was validated, so a polling dashboard can never append the same
+transition twice.
+
+---
+
+# 5c · Stock — the one write a branch manager gets
+
+Price is global and only a developer can change it. Availability is local, and the manager
+standing in front of the empty tray flips it.
+
+### 5c.1 The stock sheet
+```
+GET
+http://localhost:4000/api/v1/staff/stock
+```
+**Headers**
+```
+Authorization: Bearer PASTE_A_MANAGER_TOKEN_HERE
+```
+All 43 sellable products with their availability at that manager's branch — including the
+ones nobody has ever toggled, which have no stock row at all and default to in stock.
+`stockUpdatedAt: null` is how you tell those apart from "somebody set this in stock this
+morning".
+
+An **admin has no branch**, so they must name one — there is no "all branches" answer to
+"is this in stock", and silently picking one would let a toggle land somewhere nobody
+looked:
+```
+GET
+http://localhost:4000/api/v1/staff/stock?branchId=6a7c2fbe9758de53ab6f5b92
+```
+Without it: `422`, naming `branchId`.
+
+### 5c.2 What is sold out right now — the dashboard default
+```
+GET
+http://localhost:4000/api/v1/staff/stock?inStock=false
+GET
+http://localhost:4000/api/v1/staff/stock?category=Donuts
+```
+
+### 5c.3 Mark something sold out
+```
+PATCH
+http://localhost:4000/api/v1/staff/stock/6a7c2fbe9758de53ab6f5b96
+```
+**Headers**
+```
+Content-Type: application/json
+Authorization: Bearer PASTE_A_MANAGER_TOKEN_HERE
+```
+**Body**
+```json
+{ "inStock": false }
+```
+Keyed by **product** id, not by a stock-row id: the row may not exist yet, and the manager
+knows what the product is, not what its stock record is called. The first toggle creates
+the row.
+
+An admin adds the branch to the body:
+```json
+{ "inStock": false, "branchId": "6a7c2fbe9758de53ab6f5b92" }
+```
+
+**It takes a value, not a flip.** `{"inStock": false}` twice is idempotent — a retry, a
+double-tap in a hot kitchen, or two managers acting at once all converge. A `/toggle`
+endpoint that flips whatever it finds does not: two clicks that race leave the tray marked
+available.
+
+### 5c.4 Watch it propagate
+
+The public menu at that branch:
+```
+GET
+http://localhost:4000/api/v1/products?branchId=6a7c2fbe9758de53ab6f5b92
+```
+→ that product now reads `"inStock": false`.
+
+**And nowhere else** — the same id against another branch is still `true`. That is the
+entire reason `BranchStock` is its own collection: an empty tray at DHA2 must not hide the
+item across the city.
+
+Checkout refuses it:
+```
+POST
+http://localhost:4000/api/v1/checkout/quote
+```
+```json
+{
+  "fulfilment": "pickup",
+  "branchCode": "DHA2",
+  "items": [{ "kind": "product", "productId": "6a7c2fbe9758de53ab6f5b96", "qty": 2 }]
+}
+```
+→ `409 ITEMS_UNAVAILABLE`, with `details.outOfStock` naming the item so a UI can explain
+itself. Put it back with `{"inStock": true}`.
+
+### 5c.5 Scope, and the refusals
+
+| Request | Result |
+|---|---|
+| Manager sending another branch's `branchId` | `403` — nothing is written |
+| Manager reading another branch's stock or orders | `403` on the list, `404` on one order |
+| `PATCH /staff/stock/000000000000000000000000` | `404` — unknown product |
+| `PATCH /staff/stock/not-an-id` | `422` |
+| `PATCH` with `{}` | `422` — `inStock` is required |
+| A discontinued (`isActive: false`) product | `404` — it cannot be brought back by a toggle |
+
+Another branch's **order** is `404` rather than `403` on purpose: confirming that an order
+exists but belongs to someone else is the same leak in a politer tone.
+
+### 5c.6 The audit trail
+
+Every status move and every stock toggle writes an `auditLog` row — actor, action, and the
+before/after. Setting a value it already has is a deliberate no-op and writes nothing; a
+double-tap should not fill the trail with rows recording nothing.
+
+```
+# in mongosh
+use sugarloop
+db.auditlogs.find({ action: { $in: ['order.status.change', 'stock.toggle'] } })
+  .sort({ createdAt: -1 }).limit(10).pretty()
+```
+
+---
+
 # 6 · Deliberate failures — these *should* break
 
 ### 6.1 Unknown product → 404
@@ -985,13 +1271,13 @@ Still returns the JSON error envelope, never an HTML error page.
 POST  http://localhost:4000/api/v1/auth/otp/request
 POST  http://localhost:4000/api/v1/auth/otp/verify
 POST  http://localhost:4000/api/v1/enquiries
-GET   http://localhost:4000/api/v1/staff/orders
-GET   http://localhost:4000/api/v1/staff/stock
+POST  http://localhost:4000/api/v1/branches/resolve
 GET   http://localhost:4000/api/v1/staff/products
 GET   http://localhost:4000/api/v1/staff/reports/daily
 ```
 
-That is the edge of what is built. Orders CAN now be placed — see §3c.
+That is the edge of what is built. Orders can be placed (§3c), worked through to
+completion (§5b) and their stock toggled (§5c).
 
 ---
 

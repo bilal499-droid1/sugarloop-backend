@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "d1a2b3c4-1111-4222-8333-444455556666",
     "name": "Sugarloop API — Simple",
-    "description": "Plain requests for clicking through by hand. No test scripts except two tiny ones that save the login token and the branch id, so you don't have to copy-paste them.\n\nStart here: Login, then List branches, then everything else works.",
+    "description": "Plain requests for clicking through by hand. No test scripts except a few tiny ones that save the login token, the branch id, the product id and the order number, so you do not have to copy-paste them.\n\nStart here, in order: Login → List branches → All products → Quote a pickup cart → Place the order → Sign in as the branch manager → today's board. After that everything else works in any order.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -11,11 +11,21 @@
       "item": [
         {
           "name": "Liveness",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health/live", "description": "Is the process up? Never touches the database." }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health/live",
+            "description": "Is the process up? Never touches the database."
+          }
         },
         {
           "name": "Readiness",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health/ready", "description": "Is the database connected? Returns 503 if not." }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health/ready",
+            "description": "Is the database connected? Returns 503 if not."
+          }
         }
       ]
     },
@@ -47,7 +57,12 @@
         },
         {
           "name": "Get one branch",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/branches/{{branchCode}}", "description": "By code: DHA1, DHA2, DHA4, DHA5." }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/branches/{{branchCode}}",
+            "description": "By code: DHA1, DHA2, DHA4, DHA5."
+          }
         }
       ]
     },
@@ -56,7 +71,26 @@
       "item": [
         {
           "name": "All products",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products", "description": "The whole menu — 43 items. Prices are integer paisa: 29900 = Rs 299." }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products",
+            "description": "The whole menu — 43 items. Prices are integer paisa: 29900 = Rs 299."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saves the first product id so the checkout and stock requests can use it.",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('productId', pm.response.json().data[0].id)",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "By category",
@@ -78,7 +112,12 @@
         },
         {
           "name": "Box-eligible only",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products?boxEligible=true", "description": "23 items — donuts and croissants. What Build Your Box can contain." }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?boxEligible=true",
+            "description": "23 items — donuts and croissants. What Build Your Box can contain."
+          }
         },
         {
           "name": "With stock for a branch",
@@ -91,7 +130,132 @@
         },
         {
           "name": "One product",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/products/lotus", "description": "By slug. Try: chocoholic, kitkat-crunch, butter-croissant, mocha-frappe, water." }
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/lotus",
+            "description": "By slug. Try: chocoholic, kitkat-crunch, butter-croissant, mocha-frappe, water."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Checkout",
+      "item": [
+        {
+          "name": "Quote a pickup cart  ← RUN THIS THIRD",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saves the total so the order request can send it back as expectedTotal.",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('quotedTotal', pm.response.json().data.quote.totals.grandTotal.amount)",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"{{branchCode}}\",\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{productId}}\",\n      \"qty\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote",
+            "description": "The server prices everything. The cart sends ids and quantities only — a price in this body is stripped before anything reads it. Run \"All products\" first so {{productId}} is set."
+          }
+        },
+        {
+          "name": "Quote a delivery cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": {\n    \"lat\": 33.5312,\n    \"lng\": 73.1574\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{productId}}\",\n      \"qty\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote",
+            "description": "Delivery adds the Rs 100 flat fee and picks the branch from the coordinates. Move the pin more than 2 km from every branch and it refuses with OUTSIDE_DELIVERY_AREA."
+          }
+        },
+        {
+          "name": "Quote a Build Your Box",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"{{branchCode}}\",\n  \"items\": [\n    {\n      \"kind\": \"box\",\n      \"boxSize\": 4,\n      \"productIds\": [\n        \"{{productId}}\",\n        \"{{productId}}\",\n        \"{{productId}}\",\n        \"{{productId}}\"\n      ]\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/checkout/quote",
+            "description": "A box of size N must hold exactly N box-eligible items, all in stock at the branch. Sizes are 2, 4, 6 and 12."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Place the order  ← RUN THIS FOURTH",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saves the order number and, for the staff folders, nothing else — the board",
+                  "// looks the order up by number for you.",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('orderNumber', pm.response.json().data.order.orderNumber)",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"{{branchCode}}\",\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\"\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{productId}}\",\n      \"qty\": 2\n    }\n  ],\n  \"expectedTotal\": \"{{quotedTotal}}\"\n}"
+            },
+            "url": "{{baseUrl}}/orders",
+            "description": "Re-runs the pricing engine from scratch and rejects with PRICE_CHANGED if anything moved since the quote. expectedTotal is what the customer was shown — quote first."
+          }
+        },
+        {
+          "name": "Track it",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{orderNumber}}?phone=03001234567",
+            "description": "Requires the phone the order was placed with. Order numbers are sequential and enumerable, so an unguarded lookup would hand over every customer address by counting. A wrong phone is 404, not 403."
+          }
         }
       ]
     },
@@ -116,8 +280,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@sugarloop.pk\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@sugarloop.pk\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
             "url": "{{baseUrl}}/staff/auth/login",
             "description": "Set adminPassword in the environment first. Try dha1.manager@sugarloop.pk to see the branch-manager role."
           }
@@ -126,7 +298,12 @@
           "name": "Who am I",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/auth/me",
             "description": "Whoever the current token belongs to."
           }
@@ -148,8 +325,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/staff/auth/refresh",
             "description": "Access tokens last 15 minutes. This mints a new one using the httpOnly cookie Postman is holding."
           }
@@ -158,8 +343,16 @@
           "name": "Logout",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
             "url": "{{baseUrl}}/staff/auth/logout",
             "description": "204 No Content. Refresh stops working after this."
           }
@@ -173,7 +366,12 @@
           "name": "List staff",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users",
             "description": "The 5 seeded accounts. Log in as a branch manager instead and this returns 403."
           }
@@ -196,8 +394,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -211,7 +415,12 @@
           "name": "Get staff member",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users/{{staffId}}",
             "description": "Uses the id saved by Create staff."
           }
@@ -221,10 +430,19 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Renamed Manager\"\n}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Renamed Manager\"\n}"
+            },
             "url": "{{baseUrl}}/staff/users/{{staffId}}",
             "description": "Send at least one field — an empty {} returns 422."
           }
@@ -234,10 +452,19 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"password\": \"BrandNewPassword123!\"\n}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"BrandNewPassword123!\"\n}"
+            },
             "url": "{{baseUrl}}/staff/users/{{staffId}}/password"
           }
         },
@@ -245,20 +472,295 @@
           "name": "Deactivate staff member",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/staff/users/{{staffId}}",
             "description": "Soft delete — sets isActive false, keeps the row so the audit trail still resolves."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff order board",
+      "item": [
+        {
+          "name": "Today's board  ← RUN THIS FIFTH",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saves the id of the order placed above, so the requests below can move it.",
+                  "if (pm.response.code === 200) {",
+                  "  const wanted = pm.collectionVariables.get('orderNumber')",
+                  "  const found = pm.response.json().data.find((o) => o.orderNumber === wanted)",
+                  "  if (found) pm.collectionVariables.set('orderId', found.id)",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders?limit=50",
+            "description": "Signed in as admin (from Login), so this shows all four branches. Sign in as a branch manager instead and it shows theirs and nothing else — the scope comes from the token, so adding ?branchId= for another branch is 403 rather than a different answer. Note the order above landed at whichever branch /branches listed first, so a manager for a different branch will see an empty board. Also takes ?status=, ?fulfilment=, ?date=YYYY-MM-DD (Asia/Karachi) and ?phone=."
+          }
+        },
+        {
+          "name": "One order, and what it may do next",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}",
+            "description": "Returns the order plus `transitions.allowed` — the legal next moves. Draw one button per entry rather than guessing at the state machine."
+          }
+        },
+        {
+          "name": "Confirm it",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\",\n  \"note\": \"Rang the customer to confirm\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status",
+            "description": "placed → confirmed → preparing → out_for_delivery (or ready_for_pickup) → completed. One step at a time, forwards only. `note` is optional on any move."
+          }
+        },
+        {
+          "name": "Into the kitchen",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"preparing\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status",
+            "description": "Try sending a status two steps ahead and it refuses with 409, naming what was legal."
+          }
+        },
+        {
+          "name": "Hand it over",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ready_for_pickup\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status",
+            "description": "The handover step follows the fulfilment: `ready_for_pickup` for a pickup order, `out_for_delivery` for a delivery one. Sending the wrong one is 409 — that is what stops a rider being dispatched to an order with no address."
+          }
+        },
+        {
+          "name": "Complete it",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status",
+            "description": "On Cash on Delivery, completion is collection: this also sets payment.status to `collected`. Terminal — nothing moves afterwards."
+          }
+        },
+        {
+          "name": "Or fail it, with a reason",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"reason\": \"no_answer\",\n  \"note\": \"Called four times, phone off\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/orders/{{orderId}}/status",
+            "description": "Staff-only and terminal. `reason` is mandatory and comes from a fixed list — no_answer, unreachable, bad_address, refused_substitute, customer_request, branch_unable, other — because a monthly count by reason is only reportable if the codes are fixed. `other` additionally requires a note. Run this on a fresh order; a completed one is already terminal."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stock (per branch)",
+      "item": [
+        {
+          "name": "My branch stock sheet",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock?branchId={{branchId}}",
+            "description": "Every sellable product with its availability at this manager's branch — including the ones nobody has ever toggled, which have no stock row and default to in stock. An admin has no branch, so they must add ?branchId=. Also takes ?category= and ?inStock=false."
+          }
+        },
+        {
+          "name": "What is sold out right now",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/stock?branchId={{branchId}}&inStock=false",
+            "description": "The dashboard default view."
+          }
+        },
+        {
+          "name": "Mark something sold out",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": false,\n  \"branchId\": \"{{branchId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{productId}}",
+            "description": "Takes a value, not a flip — a double-tap converges on the same state instead of undoing itself. The first toggle for a product creates its stock row. \"branchId\" is here because an admin has no branch of their own; a branch manager drops it and the toggle lands on theirs. Now re-run \"With stock for a branch\" in the Products folder and watch it go false."
+          }
+        },
+        {
+          "name": "Put it back",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inStock\": true,\n  \"branchId\": \"{{branchId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/stock/{{productId}}",
+            "description": "Price is global, stock is per branch: that only ever affected the one branch, and the same product is still on sale everywhere else."
           }
         }
       ]
     }
   ],
   "variable": [
-    { "key": "baseUrl", "value": "http://127.0.0.1:4000/api/v1" },
-    { "key": "adminPassword", "value": "CHANGE-ME" },
-    { "key": "accessToken", "value": "" },
-    { "key": "branchId", "value": "" },
-    { "key": "branchCode", "value": "DHA1" },
-    { "key": "staffId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4000/api/v1"
+    },
+    {
+      "key": "adminPassword",
+      "value": "CHANGE-ME"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "branchId",
+      "value": ""
+    },
+    {
+      "key": "branchCode",
+      "value": "DHA1"
+    },
+    {
+      "key": "staffId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "quotedTotal",
+      "value": ""
+    },
+    {
+      "key": "orderNumber",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    }
   ]
 }
