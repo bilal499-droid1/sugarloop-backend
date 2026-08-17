@@ -3,11 +3,21 @@
 Ordering API for Sugarloop — a Cash-on-Delivery donut shop with four branches in
 Islamabad. Node + Express + Mongoose + Zod on MongoDB, MVC layout, REST at `/api/v1`.
 
-**Status: Sprint 1, roughly 85% complete.** A customer can browse the menu, be quoted a
-price the server computed, and **place a Cash-on-Delivery order**; a branch can then **work
-that order through to completion** and toggle its own stock. What is missing before this
-can face the public is phone verification (OTP), notifications, automatic branch assignment
-from an address, and a deploy. See [Roadmap](#roadmap).
+**Status: Sprint 1 feature-complete; not yet deployable.** A customer can browse the menu,
+be quoted a price the server computed, **verify their phone by OTP**, and **place a
+Cash-on-Delivery order**; a branch can then **work that order through to completion** and
+toggle its own stock.
+
+Two things stand between this and real customers, and neither is code we can finish alone:
+
+- **Nothing actually delivers an OTP.** WhatsApp needs the client's Meta Business account
+  and per-template approval (1–3 days each, ×7 templates); SMS needs a Twilio account.
+  Until one exists, `OTP_TRANSPORT=log` prints codes to the console and the server refuses
+  to boot in production. **This is calendar time, not dev time — start the application now.**
+- **There is no deploy.** No staging, no CI, and the accounts (Atlas, Render) still need to
+  be created in the client's name.
+
+See [Roadmap](#roadmap).
 
 ---
 
@@ -303,12 +313,19 @@ the expensive migration this design exists to avoid.
 | 6 Orders + numbering | ✅ |
 | 7 Staff auth + RBAC | ✅ built ahead of order |
 | 8 Order status + stock toggles | ✅ |
+| Customer phone OTP | ✅ pulled forward from sprint 2 — `POST /orders` is gated on it |
 | **9 Geocoding + branch assignment** | ❌ **next** — unblocked, real coordinates are in |
 | 10 Staging deploy | ❌ |
 
-Sprint 2 and beyond: customer phone OTP, WhatsApp Cloud API, SMS fallback, BullMQ status
-timers, PDF invoices, corporate enquiries, daily reports, admin product CRUD, Cloudinary
-uploads.
+**Step 9 is the last thing blocking a usable delivery checkout.** Today the storefront asks
+the browser for coordinates and reverse-geocodes them in the client against OpenStreetMap,
+which works but puts a customer's location through a third party and cannot be cached or
+billed sensibly. `POST /branches/resolve` moves that behind our own API with a server-held
+Maps key.
+
+Sprint 2 and beyond: WhatsApp Cloud API, SMS fallback, BullMQ status timers, the
+unacknowledged-order escalation, PDF invoices, corporate enquiries, daily reports, admin
+product CRUD, Cloudinary uploads.
 
 ### Known gaps in the seeded data
 
