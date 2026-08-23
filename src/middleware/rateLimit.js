@@ -1,13 +1,50 @@
 import rateLimit from 'express-rate-limit'
+import RedisStore from 'rate-limit-redis'
 import { ApiError } from '../utils/ApiError.js'
 import { env } from '../config/env.js'
-
-// In-memory store for now. When the API runs on more than one Render instance this
-// must move to Redis, or each instance enforces its own separate limit.
-// TODO(sprint-2): swap for rate-limit-redis alongside the BullMQ Redis instance.
+import { getRedis } from '../config/redis.js'
+import { logger } from '../config/logger.js'
 
 const handler = (_req, _res, next) => {
   next(ApiError.tooManyRequests())
+}
+
+/**
+ * Where the counters live.
+ *
+ * Redis when it is configured, and the library's in-memory store when it is not.
+ *
+ * The in-memory store is wrong in two ways that matter and one that does not. It resets
+ * on every restart, so a deploy hands every attacker a fresh budget; and it is per
+ * process, so two instances enforce double the limit each thinks it is enforcing. On
+ * OTP that is not a performance detail — the per-IP cap IS the control that stops a
+ * script walking a million six-digit codes, and the per-phone cap in the OTP service is
+ * the only other thing standing there.
+ *
+ * What it does not affect is a single developer on a laptop, which is why it stays the
+ * fallback rather than becoming a prerequisite. Outside development it warns.
+ *
+ * One prefix per limiter so the five do not share a bucket — without it a customer who
+ * placed an order would have spent part of their OTP allowance.
+ */
+function storeFor(name) {
+  const redis = getRedis()
+  if (!redis) return undefined
+
+  return new RedisStore({
+    prefix: `rl:${name}:`,
+    // rate-limit-redis speaks in raw commands so it can stay driver-agnostic; ioredis
+    // takes the command name and its arguments separately.
+    sendCommand: (...args) => redis.call(...args),
+  })
+}
+
+if (!env.REDIS_URL && !env.isDevelopment) {
+  logger.warn(
+    'RATE LIMITS: REDIS_URL is not set, so limits are per-process and reset on restart. ' +
+      'With more than one instance each enforces its own separate budget, and the OTP ' +
+      'per-IP cap is a security control rather than a nicety.'
+  )
 }
 
 const base = {
@@ -19,6 +56,7 @@ const base = {
 /** Broad protection for the whole API. Generous — this is anti-runaway, not anti-abuse. */
 export const generalLimiter = rateLimit({
   ...base,
+  store: storeFor('general'),
   windowMs: 60_000,
   limit: 300,
 })
@@ -29,6 +67,7 @@ export const generalLimiter = rateLimit({
  */
 export const orderLimiter = rateLimit({
   ...base,
+  store: storeFor('order'),
   windowMs: 60_000,
   limit: 10,
 })
@@ -53,6 +92,7 @@ export const orderLimiter = rateLimit({
  */
 export const otpLimiter = rateLimit({
   ...base,
+  store: storeFor('otp'),
   windowMs: 60 * 60_000,
   limit: env.isDevelopment ? 200 : 10,
 })
@@ -68,6 +108,7 @@ export const otpLimiter = rateLimit({
  */
 export const geocodeLimiter = rateLimit({
   ...base,
+  store: storeFor('geocode'),
   windowMs: 60 * 60_000,
   limit: env.isDevelopment ? 500 : 60,
 })
@@ -83,6 +124,7 @@ export const geocodeLimiter = rateLimit({
  */
 export const enquiryLimiter = rateLimit({
   ...base,
+  store: storeFor('enquiry'),
   windowMs: 60 * 60_000,
   limit: env.isDevelopment ? 100 : 5,
 })
@@ -90,6 +132,7 @@ export const enquiryLimiter = rateLimit({
 /** Login. Slows credential stuffing against staff accounts. */
 export const authLimiter = rateLimit({
   ...base,
+  store: storeFor('auth'),
   windowMs: 15 * 60_000,
   limit: 20,
   skipSuccessfulRequests: true,
