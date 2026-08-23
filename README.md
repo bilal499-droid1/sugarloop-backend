@@ -63,6 +63,40 @@ to start if one is missing — a config mistake should fail on deploy, not at 2a
 | `JWT_CUSTOMER_SECRET` | `openssl rand -base64 48` |
 | `JWT_STAFF_SECRET` | **different** secret — a leaked customer token must never work on a staff endpoint |
 | `SEED_ADMIN_PASSWORD` | seed script only; the API never reads it |
+| `EMAIL_TRANSPORT` | `log` prints and sends nothing; `smtp` needs `SMTP_HOST/USER/PASSWORD`. Refused in production as `log` |
+| `ENQUIRY_NOTIFY_EMAIL` | where corporate gifting enquiries land |
+
+### Email (corporate gifting notifications)
+
+Ships as `EMAIL_TRANSPORT=log`, which prints the message to the console and sends nothing.
+That is the right default for development and is **refused at boot in production**, where
+it would mean every corporate enquiry silently disappearing while the form kept promising
+a reply.
+
+Switching it on needs a Gmail **app password** — Gmail will not accept the account's real
+password, whatever it is:
+
+1. Sign in to the Sugarloop Google account → <https://myaccount.google.com/security>
+2. Turn on 2-Step Verification. App passwords do not appear as an option until it is on.
+3. <https://myaccount.google.com/apppasswords> → create one named e.g. "Sugarloop API"
+4. Put the 16 characters in `SMTP_PASSWORD`, uncomment the `SMTP_*` block in `.env`, and
+   set `EMAIL_TRANSPORT=smtp`
+
+Then prove it before a customer depends on it:
+
+```bash
+npm run email:test                  # sends to ENQUIRY_NOTIFY_EMAIL
+npm run email:test you@example.com  # or somewhere else
+```
+
+It prints the resolved config (never the password), sends a real message, and on failure
+decodes the provider's error — `EAUTH` in particular is what Gmail returns both for a
+wrong password *and* for using the account password instead of an app password, which the
+raw message does not say.
+
+The server refuses to start with `EMAIL_TRANSPORT=smtp` and any of host, user or password
+missing, so a half-configured mailer is a container that will not boot rather than a lead
+that vanishes.
 
 ### Staff sign-in
 
@@ -94,6 +128,7 @@ npm run dev          # watch mode
 npm start            # production
 npm run seed         # idempotent — safe to re-run
 npm run seed -- --fresh
+npm run email:test   # proves the mailer works — see Email above
 npm run lint
 npm test             # node:test, no framework
 npm run test:watch
@@ -125,6 +160,8 @@ GET  /branches                       + isOpenNow, isAcceptingOrders, computed se
 GET  /branches/:code                 DHA1 · DHA2 · BAH4 · NUST
 
 POST /checkout/quote                 prices a cart — the server, never the browser
+
+POST /enquiries                      corporate gifting — stored, then emailed
 ```
 
 `POST /checkout/quote` takes ids and quantities only:
@@ -161,6 +198,19 @@ after pricing succeeds so a rejected cart never burns a number.
 are sequential and enumerable, so an unguarded lookup would hand over every customer's
 address by counting. This is interim — Sprint 2's phone-OTP session replaces it.
 
+`POST /enquiries` takes `{ name, phone, email, company?, subject?, message? }`. Only the
+first three are required — a company typing a name, a number and "200 boxes for Eid" is a
+lead worth having, and arguing with them about which box they left empty is not. The phone
+rule is deliberately looser than the customer one used for orders: a corporate contact is
+as likely to give a landline or a UAN as a mobile.
+
+**The lead is stored first and emailed second, and the email is not allowed to fail the
+request.** SMTP goes down, inboxes filter, and a company asking about a 200-box order is
+not something to lose to a spam folder. A send that fails leaves `emailedAt` null and logs
+loudly — that is the flag for "nobody has been told about this one". Email needs
+`EMAIL_TRANSPORT=smtp` and the four `SMTP_*` variables; the default `log` transport prints
+the message and is refused at boot in production.
+
 ### Staff — `Authorization: Bearer <accessToken>`
 
 ```
@@ -168,6 +218,7 @@ POST /staff/auth/login               { email, password }
 POST /staff/auth/refresh             refresh token is an httpOnly cookie
 POST /staff/auth/logout
 POST /staff/auth/logout-all
+POST /staff/auth/password           { currentPassword, newPassword } — your own
 GET  /staff/auth/me
 
 GET    /staff/users                  admin only
@@ -183,9 +234,22 @@ PATCH  /staff/orders/:id/status      { status, reason?, note? }
 
 GET    /staff/stock                  ?branchId= &category= &inStock=
 PATCH  /staff/stock/:productId       { inStock, branchId? }
+
+GET    /staff/enquiries              admin only — ?status= &emailed= &search=
+GET    /staff/enquiries/summary      counts per status + how many never emailed
+GET    /staff/enquiries/:id
+PATCH  /staff/enquiries/:id          { status?, note? }
 ```
 
 Access tokens last 15 minutes; refresh tokens 7 days and rotate on every use.
+
+**Two ways a password changes, and neither replaces the other.** `POST /staff/auth/password`
+is the owner rotating their own and requires the current one — a 15-minute access token
+found on an unlocked phone must not be enough to seize the account permanently.
+`POST /staff/users/:id/password` is an admin reset and deliberately does *not*, because
+the point is that the owner has lost it. Both revoke every existing session; the
+self-service one issues a fresh session to the caller, so securing your account does not
+sign you out of it.
 
 **Branch scope comes from the token, never the query.** A `branch_manager` reads and moves
 orders at their own branch only; naming another branch's `branchId` is `403`, and another
@@ -325,8 +389,16 @@ Google is two lines in `.env` — see `GEOCODER` there. Lookups are cached for 9
 Google's 10,000 free/month is far more than this shop will use.
 
 Sprint 2 and beyond: WhatsApp Cloud API, SMS fallback, BullMQ status timers, the
-unacknowledged-order escalation, PDF invoices, corporate enquiries, daily reports, admin
-product CRUD, Cloudinary uploads.
+unacknowledged-order escalation, PDF invoices, daily reports, admin product CRUD,
+Cloudinary uploads.
+
+**Corporate enquiries are in, end to end.** `POST /enquiries` stores the lead and emails
+the shop, the storefront form posts to it instead of opening a `mailto:` draft, and
+`/staff/enquiries` is an admin-only inbox for working them: status, an appended note trail
+that survives the lead passing between people, and a filter for the leads whose
+notification email never sent — which exist in the database and nowhere else. There is
+deliberately no create or delete on the staff side; leads arrive from the public form, and
+removing one would erase the evidence that a company ever asked.
 
 ### Known gaps in the seeded data
 
@@ -337,7 +409,9 @@ product CRUD, Cloudinary uploads.
   building and almost certainly closes earlier. Until corrected it will accept 2am orders.
 - **Product images** — seeded empty. Blocked on moving Cloudinary to a client-owned
   account; `itemData.js` keeps the frontend asset names so the mapping is not lost.
-- **Delivery coverage** — at 2 km the four branches cover ~48 km² of Islamabad. DHA1,
-  BAH4 and DHA2 form a continuous corridor; NUST is isolated.
+- **Delivery coverage** — at 2 km the four branches cover ~48 km² of Islamabad. Not a
+  gap: branches are independent by design and cover only their own radius, so an address
+  no branch reaches is refused rather than stretched to. Listed here so the coverage is a
+  known number, and because it is one field per branch to widen.
 
 Background and client decisions live in [`docs/`](docs/).

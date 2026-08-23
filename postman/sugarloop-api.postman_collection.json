@@ -863,6 +863,106 @@
       "name": "2c · Orders",
       "item": [
         {
+          "name": "Placing an order without a verified phone → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// requireCustomer runs BEFORE validate on this route (order.routes.js), so an",
+                  "// unverified caller is turned away before the API even looks at the body — this",
+                  "// would 422 on expectedTotal if the gate were not first.",
+                  "pm.test('401', () => pm.response.to.have.status(401))",
+                  "pm.test('PHONE_NOT_VERIFIED', () => pm.expect(pm.response.json().error.code).to.eql('PHONE_NOT_VERIFIED'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"No Session\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 1 }\n  ],\n  \"expectedTotal\": 0\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "Verify the customer's phone — request a code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.test('devCode is present — only true under OTP_TRANSPORT=log outside production, which is what npm run dev uses', () => {",
+                  "  pm.expect(d.devCode).to.match(/^\\d{6}$/)",
+                  "})",
+                  "pm.collectionVariables.set('customerOtpCode', d.devCode)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"03001234567\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/otp/request"
+          }
+        },
+        {
+          "name": "Verify the customer's phone — submit the code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.test('normalised to E.164', () => pm.expect(d.phone).to.eql('+923001234567'))",
+                  "pm.collectionVariables.set('customerToken', d.token)",
+                  "// The httpOnly cookie is also set for a browser client; Postman/newman have no",
+                  "// cookie jar worth relying on here, so every order-placing request below sends",
+                  "// this back explicitly as a bearer token instead — the same fallback",
+                  "// requireCustomer accepts from curl and the mobile app."
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"03001234567\",\n  \"code\": \"{{customerOtpCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/otp/verify"
+          }
+        },
+        {
           "name": "Quote first — capture the total",
           "event": [
             {
@@ -943,6 +1043,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
               }
             ],
             "body": {
@@ -1029,6 +1133,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
               }
             ],
             "body": {
@@ -1057,6 +1165,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
               }
             ],
             "body": {
@@ -1088,6 +1200,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
               }
             ],
             "body": {
@@ -1705,6 +1821,65 @@
           }
         },
         {
+          "name": "Verify the second customer's phone — request a code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.collectionVariables.set('failCustomerOtpCode', d.devCode)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"03009876543\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/otp/request"
+          }
+        },
+        {
+          "name": "Verify the second customer's phone — submit the code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.collectionVariables.set('failCustomerToken', pm.response.json().data.token)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"03009876543\",\n  \"code\": \"{{failCustomerOtpCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/otp/verify"
+          }
+        },
+        {
           "name": "Place it",
           "event": [
             {
@@ -1728,6 +1903,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{failCustomerToken}}"
               }
             ],
             "body": {
@@ -2474,6 +2653,208 @@
       ]
     },
     {
+      "name": "2f · Corporate enquiries",
+      "item": [
+        {
+          "name": "Submit a corporate gifting enquiry",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201))",
+                  "const e = pm.response.json().data.enquiry",
+                  "pm.test('returns a reference the customer can quote on the phone', () => {",
+                  "  pm.expect(e.reference).to.match(/^[0-9A-F]{8}$/)",
+                  "})",
+                  "pm.test('receivedAt is stamped', () => pm.expect(e.receivedAt).to.be.a('string'))",
+                  "",
+                  "// The view layer is what keeps these out. Echoing the submission back buys the",
+                  "// customer nothing and confirms to anyone probing exactly what is stored.",
+                  "pm.test('does not echo the submission back', () => {",
+                  "  pm.expect(pm.response.text()).to.not.include('ayesha@examplecorp.pk')",
+                  "  pm.expect(pm.response.text()).to.not.include('Example Corp')",
+                  "})",
+                  "pm.test('does not leak whether the shop was actually emailed', () => {",
+                  "  pm.expect(e).to.not.have.property('emailedAt')",
+                  "  pm.expect(e).to.not.have.property('meta')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ayesha Khan\",\n  \"phone\": \"+92 51 111 557 799\",\n  \"email\": \"ayesha@examplecorp.pk\",\n  \"company\": \"Example Corp\",\n  \"subject\": \"Eid gifting\",\n  \"message\": \"200 boxes of 6, delivered to our head office before Eid.\"\n}"
+            },
+            "url": "{{baseUrl}}/enquiries"
+          }
+        },
+        {
+          "name": "A landline is accepted, unlike the customer phone rules",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A company's contact number is as likely to be a landline or UAN as a mobile,",
+                  "// and refusing a real corporate lead over that would be the wrong trade. Compare",
+                  "// folder 2c, where a non-mobile on an ORDER is correctly a 422.",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Switchboard Only\",\n  \"phone\": \"051-2345678\",\n  \"email\": \"reception@examplecorp.pk\"\n}"
+            },
+            "url": "{{baseUrl}}/enquiries"
+          }
+        },
+        {
+          "name": "Name, phone and email are the only required fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 — a lead is worth more than a complete form', () => pm.response.to.have.status(201))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Minimal Lead\",\n  \"phone\": \"03001234567\",\n  \"email\": \"minimal@examplecorp.pk\"\n}"
+            },
+            "url": "{{baseUrl}}/enquiries"
+          }
+        },
+        {
+          "name": "A bad email is refused — it is the reply channel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('names the field so the form can mark it', () => {",
+                  "  const e = pm.response.json().error",
+                  "  pm.expect(e.code).to.eql('VALIDATION_ERROR')",
+                  "  pm.expect(JSON.stringify(e.details)).to.include('email')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No Reply\",\n  \"phone\": \"03001234567\",\n  \"email\": \"not-an-email\"\n}"
+            },
+            "url": "{{baseUrl}}/enquiries"
+          }
+        },
+        {
+          "name": "A missing name is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('names the field', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error.details)).to.include('name')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   \",\n  \"phone\": \"03001234567\",\n  \"email\": \"someone@examplecorp.pk\"\n}"
+            },
+            "url": "{{baseUrl}}/enquiries"
+          }
+        },
+        {
+          "name": "A message longer than the cap is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The form is not a place to store a novel, and an unbounded text field on a",
+                  "// public endpoint is a way to fill someone else's database.",
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Verbose\",\n  \"phone\": \"03001234567\",\n  \"email\": \"verbose@examplecorp.pk\",\n  \"message\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n}"
+            },
+            "url": "{{baseUrl}}/enquiries"
+          }
+        }
+      ]
+    },
+    {
       "name": "3 · Staff auth",
       "item": [
         {
@@ -2862,6 +3243,237 @@
           }
         },
         {
+          "name": "Sign in as the QA manager",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The QA account's password as of the admin reset two requests up.",
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.collectionVariables.set('qaAccessToken', d.accessToken)",
+                  "pm.test('is the QA branch manager', () => pm.expect(d.staffUser.role).to.eql('branch_manager'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"AnotherQaPassword99!\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/login"
+          }
+        },
+        {
+          "name": "Self password change: wrong current password is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401))",
+                  "pm.test('INVALID_PASSWORD — a distinct code from a bad login', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('INVALID_PASSWORD')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{qaAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"not-their-password\",\n  \"newPassword\": \"QaSelfChanged123!\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/password"
+          }
+        },
+        {
+          "name": "Self password change: same as current is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{qaAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"AnotherQaPassword99!\",\n  \"newPassword\": \"AnotherQaPassword99!\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/password"
+          }
+        },
+        {
+          "name": "Self password change: short new password is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('says which field', () => {",
+                  "  const e = pm.response.json().error",
+                  "  pm.expect(JSON.stringify(e.details)).to.include('newPassword')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{qaAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"AnotherQaPassword99!\",\n  \"newPassword\": \"short\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/password"
+          }
+        },
+        {
+          "name": "Change their own password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const d = pm.response.json().data",
+                  "pm.test('issues a fresh access token — the caller stays signed in', () => {",
+                  "  pm.expect(d.accessToken).to.be.a('string').and.not.empty",
+                  "})",
+                  "pm.collectionVariables.set('qaAccessToken', d.accessToken)",
+                  "pm.test('password is not echoed back', () => pm.expect(pm.response.text()).to.not.include('QaSelfChanged'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{qaAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"AnotherQaPassword99!\",\n  \"newPassword\": \"QaSelfChanged123!\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/password"
+          }
+        },
+        {
+          "name": "The old password no longer works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"AnotherQaPassword99!\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/login"
+          }
+        },
+        {
+          "name": "The new password works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('still the QA branch manager', () => pm.expect(pm.response.json().data.staffUser.role).to.eql('branch_manager'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"QaSelfChanged123!\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/auth/login"
+          }
+        },
+        {
           "name": "Deactivate them (soft delete)",
           "event": [
             {
@@ -2886,6 +3498,335 @@
               }
             ],
             "url": "{{baseUrl}}/staff/users/{{qaStaffId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4b · Corporate enquiries inbox (admin only)",
+      "item": [
+        {
+          "name": "List enquiries",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const b = pm.response.json()",
+                  "pm.test('folder 2f left leads behind to find', () => pm.expect(b.data.length).to.be.at.least(3))",
+                  "pm.test('paginated envelope', () => {",
+                  "  pm.expect(b.meta).to.have.property('nextCursor')",
+                  "  pm.expect(b.meta).to.have.property('hasMore')",
+                  "})",
+                  "",
+                  "// The submitter's IP and user agent exist for investigating a scripted form,",
+                  "// not for reading on a dashboard. views/enquiryView.js is what keeps them out.",
+                  "pm.test('never leaks the submitter metadata', () => {",
+                  "  pm.expect(pm.response.text()).to.not.include('userAgent')",
+                  "  b.data.forEach(e => pm.expect(e).to.not.have.property('meta'))",
+                  "})",
+                  "",
+                  "pm.collectionVariables.set('enquiryId', b.data[0].id)"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/enquiries?limit=50"
+          }
+        },
+        {
+          "name": "Counts for the filter chips",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 — and `summary` is not read as an id', () => pm.response.to.have.status(200))",
+                  "const s = pm.response.json().data.summary",
+                  "pm.test('one count per status, plus the never-emailed tally', () => {",
+                  "  pm.expect(s).to.have.property('new')",
+                  "  pm.expect(s).to.have.property('contacted')",
+                  "  pm.expect(s).to.have.property('closed')",
+                  "  pm.expect(s).to.have.property('unemailed')",
+                  "  pm.expect(s.total).to.be.at.least(3)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/enquiries/summary"
+          }
+        },
+        {
+          "name": "One enquiry",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const e = pm.response.json().data.enquiry",
+                  "pm.test('carries what the customer typed', () => {",
+                  "  pm.expect(e.email).to.be.a('string')",
+                  "  pm.expect(e.reference).to.match(/^[0-9A-F]{8}$/)",
+                  "})",
+                  "pm.test('and whether the shop was actually told', () => pm.expect(e.emailed).to.be.a('boolean'))",
+                  "pm.test('notes start empty', () => pm.expect(e.notes).to.be.an('array'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/enquiries/{{enquiryId}}"
+          }
+        },
+        {
+          "name": "Record a call and move it to contacted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const e = pm.response.json().data.enquiry",
+                  "pm.test('status moved', () => pm.expect(e.status).to.eql('contacted'))",
+                  "pm.test('the note is attributed to whoever wrote it', () => {",
+                  "  pm.expect(e.notes).to.have.lengthOf(1)",
+                  "  pm.expect(e.notes[0].text).to.include('quote by Friday')",
+                  "  pm.expect(e.notes[0].byName).to.be.a('string').and.not.empty",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"contacted\",\n  \"note\": \"Rang them — wants a quote by Friday.\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/enquiries/{{enquiryId}}"
+          }
+        },
+        {
+          "name": "Notes accumulate rather than replace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "const e = pm.response.json().data.enquiry",
+                  "// A note that can be rewritten is not a record of what happened.",
+                  "pm.test('both notes are there, oldest first', () => {",
+                  "  pm.expect(e.notes).to.have.lengthOf(2)",
+                  "  pm.expect(e.notes[0].text).to.include('quote by Friday')",
+                  "  pm.expect(e.notes[1].text).to.include('Sent the quote')",
+                  "})",
+                  "pm.test('a note alone does not move the status', () => pm.expect(e.status).to.eql('contacted'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Sent the quote through.\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/enquiries/{{enquiryId}}"
+          }
+        },
+        {
+          "name": "Filter to the leads nobody was told about",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "// These exist in the database and NOWHERE else — the notification email failed,",
+                  "// so they are absent from the shop's inbox. This filter is the only way to find",
+                  "// them, which is why emailedAt is stored rather than merely logged.",
+                  "pm.test('every row really did fail to send', () => {",
+                  "  pm.response.json().data.forEach(e => pm.expect(e.emailed).to.be.false)",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/enquiries?emailed=false&limit=50"
+          }
+        },
+        {
+          "name": "An empty PATCH is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 — reporting a change that never happened is worse than refusing', () => pm.response.to.have.status(422))",
+                  "pm.test('VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/staff/enquiries/{{enquiryId}}"
+          }
+        },
+        {
+          "name": "An unknown status is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"maybe\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/enquiries/{{enquiryId}}"
+          }
+        },
+        {
+          "name": "A branch manager cannot see the inbox → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A corporate gifting lead is not a branch's order — it carries a company's",
+                  "// contact details and belongs to whoever runs the shop.",
+                  "pm.test('403', () => pm.response.to.have.status(403))",
+                  "pm.test('FORBIDDEN, not 401 — they are authenticated, just not allowed', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/enquiries"
+          }
+        },
+        {
+          "name": "No token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/staff/enquiries"
           }
         }
       ]
@@ -3399,26 +4340,20 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Documents the boundary of what is built. When OTP lands, this flips to failing —",
-                  "// which is the reminder to extend this collection.",
-                  "pm.test('POST /auth/otp/request is not implemented yet', () => pm.response.to.have.status(404))"
+                  "// Used to be POST /auth/otp/request, with a comment predicting this exact failure",
+                  "// once OTP landed. It landed (folder 2c exercises it for real), so this moved to",
+                  "// POST /enquiries — and then corporate enquiries shipped too. Now pointed at the",
+                  "// daily sales report, which is genuinely still on the roadmap. The assertion is",
+                  "// meant to fail the day that endpoint is built: that is the reminder to cover it.",
+                  "pm.test('GET /staff/reports/daily is not implemented yet', () => pm.response.to.have.status(404))"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}"
-            },
-            "url": "{{baseUrl}}/auth/otp/request"
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/staff/reports/daily"
           }
         }
       ]
@@ -3622,6 +4557,30 @@
     },
     {
       "key": "otherBranchCode",
+      "value": ""
+    },
+    {
+      "key": "qaAccessToken",
+      "value": ""
+    },
+    {
+      "key": "customerOtpCode",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "failCustomerOtpCode",
+      "value": ""
+    },
+    {
+      "key": "failCustomerToken",
+      "value": ""
+    },
+    {
+      "key": "enquiryId",
       "value": ""
     }
   ]

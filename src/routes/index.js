@@ -6,6 +6,7 @@ import productRoutes from './product.routes.js'
 import branchRoutes from './branch.routes.js'
 import checkoutRoutes from './checkout.routes.js'
 import orderRoutes from './order.routes.js'
+import enquiryRoutes from './enquiry.routes.js'
 
 const router = Router()
 
@@ -16,9 +17,7 @@ router.use('/products', productRoutes)
 router.use('/branches', branchRoutes)
 router.use('/checkout', checkoutRoutes)
 router.use('/orders', orderRoutes)
-
-// Sprint 2 mounts this as it lands:
-//   router.use('/enquiries', enquiryRoutes)
+router.use('/enquiries', enquiryRoutes)
 
 router.get('/', (_req, res) => {
   res.json({

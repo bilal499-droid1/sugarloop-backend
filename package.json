@@ -12,6 +12,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
+    "email:test": "node src/scripts/emailTest.js",
     "lint": "eslint src",
     "test": "node --test",
     "test:watch": "node --test --watch",
@@ -29,6 +30,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
+    "nodemailer": "^9.0.5",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "zod": "^3.24.1"

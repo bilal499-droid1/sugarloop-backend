@@ -72,6 +72,21 @@ export const geocodeLimiter = rateLimit({
   limit: env.isDevelopment ? 500 : 60,
 })
 
+/**
+ * The corporate gifting form. Public, unauthenticated, and every submission sends an
+ * email — so an unthrottled endpoint is a way to flood the shop's own inbox until the
+ * real leads are unfindable, using the shop's own SMTP reputation to do it.
+ *
+ * Five an hour is far more than a company asking about gift boxes needs, and useless to
+ * a script. Relaxed in development for the same reason as the OTP and geocode limiters:
+ * the developer, the browser, Postman and the test suite all arrive as `127.0.0.1`.
+ */
+export const enquiryLimiter = rateLimit({
+  ...base,
+  windowMs: 60 * 60_000,
+  limit: env.isDevelopment ? 100 : 5,
+})
+
 /** Login. Slows credential stuffing against staff accounts. */
 export const authLimiter = rateLimit({
   ...base,

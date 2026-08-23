@@ -47,6 +47,26 @@ const schema = z.object({
 
   /** Required when GEOCODER=google. Checked at boot, not at the first checkout. */
   GOOGLE_MAPS_API_KEY: z.string().optional(),
+
+  /**
+   * How outbound email leaves the server. See services/email.service.js.
+   *
+   * `log` prints the message and sends nothing — refused at boot in production, where it
+   * would mean corporate enquiries silently disappearing. `smtp` is real delivery and
+   * needs the four SMTP_* variables below.
+   */
+  EMAIL_TRANSPORT: z.enum(['log', 'smtp']).default('log'),
+
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+
+  /** The From: address. Must be one the SMTP account is allowed to send as. */
+  EMAIL_FROM: z.string().default('Sugarloop <sugarlooppk@gmail.com>'),
+
+  /** Where corporate gifting enquiries land. */
+  ENQUIRY_NOTIFY_EMAIL: z.string().email().default('sugarlooppk@gmail.com'),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -87,6 +107,20 @@ if (!env.isDevelopment) {
   }
   if (corsOrigins.length === 0) {
     console.error('\nRefusing to start: CORS_ORIGINS is empty outside development.\n')
+    process.exit(1)
+  }
+}
+
+// Checked here rather than at the first send, so a half-configured mailer is a container
+// that will not start rather than a corporate enquiry that vanishes.
+if (env.EMAIL_TRANSPORT === 'smtp') {
+  const missing = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD'].filter((key) => !env[key])
+  if (missing.length > 0) {
+    console.error(
+      `\nRefusing to start: EMAIL_TRANSPORT=smtp but ${missing.join(', ')} ${
+        missing.length === 1 ? 'is' : 'are'
+      } not set.\n`
+    )
     process.exit(1)
   }
 }

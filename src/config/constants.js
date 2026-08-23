@@ -147,6 +147,16 @@ export const PRODUCT_CATEGORIES = Object.freeze([
 export const BOX_SIZES = Object.freeze([2, 4, 6, 12])
 
 /**
+ * Corporate gifting leads. Three states, because a sales pipeline with more stages than
+ * the shop actually works is a dropdown nobody keeps accurate.
+ */
+export const ENQUIRY_STATUS = Object.freeze({
+  NEW: 'new',
+  CONTACTED: 'contacted',
+  CLOSED: 'closed',
+})
+
+/**
  * FBR is not integrated in Phase 1, but every order carries the fiscal shape so
  * switching it on later is a config change rather than a data migration. See §9b.
  */
