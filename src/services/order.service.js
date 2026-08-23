@@ -14,6 +14,7 @@ import { businessDateStamp } from '../utils/time.js'
 import { FULFILMENT, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from '../config/constants.js'
 import { quote as priceQuote } from './checkout.service.js'
 import { notifyOrderPlaced } from './notification.service.js'
+import { scheduleOrderEscalation } from '../queues/orderEscalation.js'
 
 const ORDER_PREFIX = 'SL'
 const SEQUENCE_PAD = 4
@@ -199,6 +200,11 @@ export async function create(
   // notification that fails changes nothing about whether this call succeeded. `notify`
   // swallows its own errors for that reason — see notification.service.js.
   await notifyOrderPlaced(order, branch, notifications)
+
+  // Starts the chase clock. Also told, not asked, and for the same reason as the
+  // notification above: the order is already placed, so a queue that is down must not
+  // turn a successful checkout into a 500.
+  await scheduleOrderEscalation(order)
 
   return order
 }

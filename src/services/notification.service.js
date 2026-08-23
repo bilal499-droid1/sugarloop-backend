@@ -45,6 +45,17 @@ export const TEMPLATES = Object.freeze({
   ORDER_COMPLETED: 'sugarloop_order_completed',
   NEW_ORDER_STAFF: 'sugarloop_new_order_staff',
   ENQUIRY_STAFF: 'sugarloop_enquiry_staff',
+
+  /**
+   * ⚠️ An EIGHTH template, and it is not in the seven the client was originally asked to
+   * submit. It needs its own Meta approval before a single one of these can send.
+   *
+   * It cannot reuse `sugarloop_new_order_staff`: Meta requires the message body to match
+   * the approved template, and "this order has been waiting 5 minutes" is not the same
+   * message as "a new order came in". Re-sending the original would also be
+   * indistinguishable from a duplicate, which is exactly the wrong signal for a chase.
+   */
+  ORDER_UNACKNOWLEDGED: 'sugarloop_order_unacknowledged',
 })
 
 /**
@@ -232,6 +243,36 @@ export async function notifyStatusChange(order, branch, options) {
       to: order.contact.phone,
       template,
       params: [order.contact.name, order.orderNumber, branchPhone(branch)],
+    },
+    options
+  )
+}
+
+/**
+ * An order has sat unacknowledged and somebody needs chasing.
+ *
+ * `to` is passed in rather than derived, because the recipient is the whole point of the
+ * escalation ladder: the branch at five minutes, whoever runs the shop at ten. The queue
+ * decides who; this only knows how to say it.
+ *
+ * `waitedMinutes` is in the message because "an order is waiting" prompts a glance and
+ * "an order has been waiting 10 minutes" prompts a phone call.
+ */
+export async function notifyOrderUnacknowledged(
+  { order, branch, to, waitedMinutes },
+  options
+) {
+  await notify(
+    {
+      to,
+      template: TEMPLATES.ORDER_UNACKNOWLEDGED,
+      params: [
+        order.orderNumber,
+        branch?.name ?? '',
+        String(waitedMinutes),
+        formatPKR(order.totals.grandTotal),
+        branchPhone(branch),
+      ],
     },
     options
   )

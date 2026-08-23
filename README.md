@@ -16,9 +16,10 @@ not an omission, so please don't add any. `npm run check` is the gate.
 One thing stands between this and real customers, and it is not code we can finish alone:
 
 - **Nothing actually delivers a message.** WhatsApp needs the client's Meta Business
-  account and per-template approval (1–3 days each, ×7 templates); SMS needs a Twilio
-  account. Until one exists, `OTP_TRANSPORT=log` and `NOTIFY_TRANSPORT=log` render to the
-  console and send nothing, and the server refuses to boot in production on either.
+  account and per-template approval (1–3 days each, now **×8** — the escalation added
+  `sugarloop_order_unacknowledged`); SMS needs a Twilio account. Until one exists,
+  `OTP_TRANSPORT=log` and `NOTIFY_TRANSPORT=log` render to the console and send nothing,
+  and the server refuses to boot in production on either.
   **This is calendar time, not dev time — start the application now.**
 
 See [Roadmap](#roadmap).
@@ -71,6 +72,9 @@ to start if one is missing — a config mistake should fail on deploy, not at 2a
 | `ENQUIRY_NOTIFY_EMAIL` | where corporate gifting enquiries land |
 | `NOTIFY_TRANSPORT` | order notifications. `log` renders and sends nothing; `whatsapp` needs the Meta account. Refused in production as `log` |
 | `ENQUIRY_NOTIFY_PHONE` | where the WhatsApp copy of an enquiry goes. Empty skips it; the email is unaffected |
+| `REDIS_URL` | **optional.** Without it rate limits are per-process and unacknowledged orders are never chased |
+| `ORDER_ESCALATION_MANAGER_MINUTES` / `_ADMIN_MINUTES` | how long an order may sit in `placed`. 5 and 10 |
+| `ADMIN_ESCALATION_PHONE` | the second escalation rung. Falls back to `ENQUIRY_NOTIFY_PHONE` |
 
 ### Email (corporate gifting notifications)
 
@@ -316,6 +320,39 @@ button get one success and one `409` telling the loser to refresh, rather than t
 transitions appended to one order. Every move and every stock toggle writes an `auditLog`
 row with the actor, the order number or SKU, and the before/after.
 
+### Unacknowledged orders
+
+An order arrives, the branch is messaged, and nothing notices if nobody acts on it. On a
+busy evening that is an order sitting in a queue while a customer waits for donuts nobody
+started — the failure the order board exists to prevent, and the one it cannot prevent
+alone, because a board only helps somebody who is looking at it.
+
+Two delayed jobs per order: at **5 minutes** the branch is chased, at **10** the admin is
+(`ORDER_ESCALATION_*_MINUTES`). Both are cancelled the moment the order leaves `placed` —
+confirming it **is** the acknowledgement, so there is no separate "seen" button for
+anyone to forget to press.
+
+**The order's own status is the authority, not the job.** Every job re-reads the order
+before sending and does nothing if it has moved. Cancellation is an optimisation on top of
+that check, never a substitute: a job can already be running when the cancel lands, and
+the API can restart between enqueue and fire. Chasing a manager about an order they
+finished ten minutes ago erodes trust in the alert far faster than a missed one does.
+
+The board polls every 15s and sounds a **repeating** chime while anything sits
+unacknowledged — a single chime at the moment an order lands is missed by anyone who
+stepped away, and then never sounds again for that order. It stops when somebody acts, not
+when a timer expires. A phone in a kitchen during a rush is the thing least likely to be
+looked at; the board is what somebody is actually in front of.
+
+⚠️ **This needs an eighth WhatsApp template**, `sugarloop_order_unacknowledged`, which is
+not among the seven the client was asked to submit. It cannot reuse
+`sugarloop_new_order_staff`: Meta requires the body to match the approved template, and a
+re-send would be indistinguishable from a duplicate anyway — the wrong signal for a chase.
+
+The admin rung is configured (`ADMIN_ESCALATION_PHONE`) rather than looked up, because a
+`StaffUser` carries no phone number. The manager rung uses the **branch** line, which
+rings where the order is being made and reaches whoever is on shift.
+
 ### The catalogue
 
 `/staff/products` is **admin only**, and a branch manager has no write to it at all. That
@@ -469,6 +506,9 @@ the expensive migration this design exists to avoid.
 | 9 Geocoding + branch assignment | ✅ `POST /branches/resolve`, cached, provider-swappable |
 | Corporate enquiries + FAQ questions | ✅ public forms, admin inbox, per-kind queues |
 | Order notifications | ✅ wired to every event — **the send itself is the stub** |
+| Admin product CRUD | ✅ `/staff/products`, audited, discontinue-not-delete |
+| Redis rate limits | ✅ falls back to in-memory without `REDIS_URL` |
+| Unacknowledged-order escalation | ✅ 5 min → branch, 10 min → admin, plus the board's alarm |
 | 10 Staging deploy | ⛔ out of scope, by decision |
 | **WhatsApp / SMS send** | ❌ **next** — one function each, blocked on the Meta account |
 

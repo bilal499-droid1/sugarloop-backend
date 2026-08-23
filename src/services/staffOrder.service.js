@@ -18,6 +18,7 @@ import { businessDayRange } from '../utils/time.js'
 import { allowedTransitions, assertTransition } from './orderStatus.js'
 import * as audit from './audit.service.js'
 import { notifyStatusChange } from './notification.service.js'
+import { cancelOrderEscalation } from '../queues/orderEscalation.js'
 import {
   ORDER_STATUS,
   PAYMENT_METHOD,
@@ -206,6 +207,12 @@ export async function changeStatus(id, { status: next, reason = null, note = nul
   // `branchId` is populated by the update above, so the branch phone every template signs
   // off with is already in hand.
   await notifyStatusChange(updated, updated.branchId, context.notifications)
+
+  // Leaving `placed` IS the acknowledgement — there is no separate "seen" button for
+  // anyone to forget to press. Cancelling is best-effort: the worker re-reads the order's
+  // status before it sends, so a cancel that loses the race only costs a job that wakes
+  // up and decides to do nothing.
+  await cancelOrderEscalation(order._id)
 
   return updated
 }

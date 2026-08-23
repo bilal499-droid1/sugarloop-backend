@@ -6,6 +6,8 @@ import { assertTransportIsProductionSafe } from './services/otpDelivery.service.
 import { assertGeocoderIsConfigured } from './services/geocoding.service.js'
 import { assertEmailTransportIsProductionSafe } from './services/email.service.js'
 import { assertNotifyTransportIsProductionSafe } from './services/notification.service.js'
+import { disconnectRedis } from './config/redis.js'
+import { startOrderEscalation, stopOrderEscalation } from './queues/orderEscalation.js'
 
 async function start() {
   // Before anything binds a port: the development OTP transport in production would mean
@@ -27,6 +29,10 @@ async function start() {
 
   await connectDatabase()
 
+  // After the database: the worker reads orders, so it must not start against a
+  // connection that is not up yet. No-ops when REDIS_URL is unset.
+  startOrderEscalation()
+
   const app = createApp()
   const server = app.listen(env.PORT, () => {
     logger.info(`Sugarloop API listening on port ${env.PORT} [${env.NODE_ENV}]`)
@@ -45,7 +51,11 @@ async function start() {
     // Stop accepting new connections, let in-flight requests finish.
     server.close(async () => {
       try {
+        // The escalation worker before Redis: it holds a blocking connection, and
+        // closing the client under it logs a spurious connection error on every deploy.
+        await stopOrderEscalation()
         await disconnectDatabase()
+        await disconnectRedis()
         logger.info('Shutdown complete')
         process.exit(0)
       } catch (err) {

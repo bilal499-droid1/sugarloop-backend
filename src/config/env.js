@@ -53,6 +53,35 @@ const schema = z.object({
   ENQUIRY_NOTIFY_PHONE: z.string().default(''),
 
   /**
+   * Redis, for rate-limit counters and the order-escalation queue. See config/redis.js.
+   *
+   * Optional so a laptop with no Redis still runs the whole API: the limiters fall back
+   * to an in-memory store and the escalation queue does not start. Both fallbacks are
+   * fine for one developer and wrong for a real shop, so both warn loudly at boot
+   * outside development.
+   */
+  REDIS_URL: z.string().optional(),
+
+  /**
+   * How long an order may sit in `placed` before the branch manager is chased, and then
+   * the admin. Client decision: 5 and 10 minutes.
+   *
+   * Configurable rather than hardcoded because the right number is whatever the shop
+   * discovers it is after a fortnight of real service, and that should not need a code
+   * change. Minutes, because that is the unit the decision was made in.
+   */
+  ORDER_ESCALATION_MANAGER_MINUTES: z.coerce.number().int().positive().default(5),
+  ORDER_ESCALATION_ADMIN_MINUTES: z.coerce.number().int().positive().default(10),
+
+  /**
+   * Who gets chased when a branch has ignored an order for ten minutes.
+   *
+   * Configured rather than looked up because a StaffUser has no phone number — the admin
+   * rung has nowhere else to read one from. Falls back to ENQUIRY_NOTIFY_PHONE.
+   */
+  ADMIN_ESCALATION_PHONE: z.string().default(''),
+
+  /**
    * Which geocoder turns a delivery address into coordinates. See
    * services/geocoding.service.js.
    *
