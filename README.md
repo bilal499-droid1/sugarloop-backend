@@ -235,6 +235,16 @@ loudly — that is the flag for "nobody has been told about this one". Email nee
 `EMAIL_TRANSPORT=smtp` and the four `SMTP_*` variables; the default `log` transport prints
 the message and is refused at boot in production.
 
+⚠️ **There is no per-form rate limit on `POST /enquiries`** — removed by request. Only
+`generalLimiter` applies, at 300/minute per IP, which is about sixty times more permissive
+than the five an hour this endpoint used to allow. The form is public, unauthenticated,
+and every accepted submission sends mail from the shop's own account, so the exposure is a
+script filling the inbox until real leads are unfindable — and burning the shop's SMTP
+reputation doing it, which is the slow part to undo. It costs little while
+`EMAIL_TRANSPORT=log` sends nothing; it starts costing on the day SMTP is switched on.
+`enquiryLimiter` is still exported and configured, so restoring it is one line in
+`routes/enquiry.routes.js`.
+
 ### Staff — `Authorization: Bearer <accessToken>`
 
 ```
