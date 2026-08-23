@@ -93,6 +93,21 @@ async function findOrThrow(id, { withPassword = false } = {}) {
   return staffUser
 }
 
+/**
+ * Populates the branch on a document that has just been written.
+ *
+ * `list` and `getById` populate as they read, but a document returned straight out of
+ * `create()` or `save()` carries a bare ObjectId — so `staffUserView` emits `{ id }` with
+ * no code or name, and the SAME resource arrives in two shapes depending on which
+ * endpoint produced it. A client that renders the branch name then shows it everywhere
+ * except immediately after an edit, which reads as the edit having cleared the branch.
+ *
+ * A no-op for an admin, whose branch is null.
+ */
+function withBranch(staffUser) {
+  return staffUser.populate('branchId', 'code name')
+}
+
 export async function list({ role, branchId, isActive, search, limit, cursor }) {
   const filter = {}
   if (role) filter.role = role
@@ -152,7 +167,7 @@ export async function create({ name, email, password, role, branchId }, context)
     ip: context.ip,
   })
 
-  return staffUser
+  return withBranch(staffUser)
 }
 
 export async function update(id, payload, context) {
@@ -193,7 +208,7 @@ export async function update(id, payload, context) {
     ip: context.ip,
   })
 
-  return staffUser
+  return withBranch(staffUser)
 }
 
 /**
@@ -221,7 +236,7 @@ export async function resetPassword(id, password, context) {
     ip: context.ip,
   })
 
-  return staffUser
+  return withBranch(staffUser)
 }
 
 /**
@@ -247,5 +262,5 @@ export async function deactivate(id, context) {
     ip: context.ip,
   })
 
-  return staffUser
+  return withBranch(staffUser)
 }

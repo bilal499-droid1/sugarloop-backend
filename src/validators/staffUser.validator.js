@@ -1,19 +1,8 @@
 import { z } from 'zod'
 import { STAFF_ROLE } from '../config/constants.js'
+import { passwordSchema as password } from './password.js'
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id')
-
-/**
- * bcrypt hashes only the first 72 BYTES of input and silently ignores the rest, so a
- * longer password is not the stronger password the user believes they chose. Rejecting
- * it is honest; truncating it quietly is not.
- */
-const password = z
-  .string()
-  .min(12, 'Password must be at least 12 characters')
-  .refine((value) => Buffer.byteLength(value, 'utf8') <= 72, {
-    message: 'Password must be at most 72 bytes',
-  })
 
 const email = z.string().trim().toLowerCase().email('Must be a valid email address')
 

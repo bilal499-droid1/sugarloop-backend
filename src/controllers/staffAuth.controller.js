@@ -81,6 +81,26 @@ export async function logout(req, res) {
   return noContent(res)
 }
 
+/**
+ * Change your own password.
+ *
+ * Answers exactly like login and refresh do — `{ staffUser, accessToken }` plus a fresh
+ * refresh cookie — because the service revoked every session including this one. Without
+ * re-issuing here, the operator would be signed out by the act of securing their account,
+ * which is the surest way to teach people not to change their password.
+ */
+export async function changePassword(req, res) {
+  const { staffUser, accessToken, refreshToken } = await staffAuthService.changePassword(
+    req.staff._id,
+    req.body,
+    requestContext(req)
+  )
+
+  setRefreshCookie(res, refreshToken)
+
+  return ok(res, { staffUser: staffUserView(staffUser), accessToken })
+}
+
 /** Ends every session, everywhere. The "I lost my laptop" button. */
 export async function logoutAll(req, res) {
   await staffAuthService.revokeAllSessions(req.staff._id)

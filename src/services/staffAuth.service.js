@@ -181,6 +181,50 @@ export async function logout(refreshToken) {
   )
 }
 
+/**
+ * A staff member changing their own password.
+ *
+ * Distinct from the admin reset in `staffUser.service.js`, and neither replaces the
+ * other. The reset exists because the owner has LOST the password and cannot prove
+ * anything; this exists because they still hold it and want a different one. Requiring
+ * the current password here is what makes it safe to leave in the hands of the account
+ * owner instead of routing every rotation through an administrator who then knows it.
+ *
+ * Every other session is revoked, because a password change is the standard response to
+ * "somebody may know my password" and leaving that somebody's seven-day refresh token
+ * alive would answer the wrong half of the problem. The caller keeps working: a fresh
+ * session is issued and returned, so the tab they typed it into is the one that survives.
+ */
+export async function changePassword(staffUserId, { currentPassword, newPassword }, context = {}) {
+  const staffUser = await StaffUser.findById(staffUserId)
+    .select('+passwordHash')
+    .populate('branchId', 'code name')
+
+  // requireStaff loaded this account moments ago, so a miss here means it was deleted
+  // mid-request. Treating it as an expired session is both true and the response the
+  // client already knows how to handle.
+  if (!staffUser) throw ApiError.unauthorized('Invalid access token')
+
+  if (!(await staffUser.verifyPassword(currentPassword))) {
+    // 401 with its own code rather than a generic 422: the client shows this against
+    // the current-password field, not as a form-wide validation failure.
+    throw new ApiError(401, 'INVALID_PASSWORD', 'Your current password is not correct')
+  }
+
+  // Assigned in plain text — the model's pre-save hook is what hashes this path.
+  staffUser.passwordHash = newPassword
+  // A caller who just proved the current password is not the attacker the lockout is
+  // for, and leaving a lock in place would bar them from the account they just secured.
+  staffUser.failedLoginAttempts = 0
+  staffUser.lockedUntil = null
+  await staffUser.save()
+
+  await revokeAllSessions(staffUser._id)
+
+  const { accessToken, refreshToken } = await issueSession(staffUser, context)
+  return { staffUser, accessToken, refreshToken }
+}
+
 export async function revokeAllSessions(staffUserId) {
   await StaffSession.updateMany(
     { staffUserId, revokedAt: null },
