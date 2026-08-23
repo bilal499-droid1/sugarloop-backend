@@ -114,19 +114,27 @@ export const geocodeLimiter = rateLimit({
 })
 
 /**
- * The corporate gifting form. Public, unauthenticated, and every submission sends an
- * email — so an unthrottled endpoint is a way to flood the shop's own inbox until the
- * real leads are unfindable, using the shop's own SMTP reputation to do it.
+ * The corporate gifting form and the FAQ ask box. Public, unauthenticated, and every
+ * submission sends an email — so an unthrottled endpoint is a way to flood the shop's own
+ * inbox until the real leads are unfindable, using the shop's own SMTP reputation to do
+ * it. That last part is the slow half to undo: providers throttle, and then drop, mail
+ * from a sender that suddenly emits hundreds of messages.
  *
- * Five an hour is far more than a company asking about gift boxes needs, and useless to
- * a script. Relaxed in development for the same reason as the OTP and geocode limiters:
- * the developer, the browser, Postman and the test suite all arrive as `127.0.0.1`.
+ * **A hundred an hour, everywhere.** No development exemption, deliberately — unlike the
+ * OTP and geocode limiters, this number is high enough that a developer, a browser,
+ * Postman and the test suite all sharing `127.0.0.1` will not reach it in a day's work.
+ * Keeping one number means the rule a developer meets is the rule a customer meets, and
+ * nobody discovers the real limit for the first time in production.
+ *
+ * It is a ceiling on abuse rather than a throttle on use: a company asking about gift
+ * boxes sends one, and a hundred from a single address in an hour is not a shop having a
+ * good day.
  */
 export const enquiryLimiter = rateLimit({
   ...base,
   store: storeFor('enquiry'),
   windowMs: 60 * 60_000,
-  limit: env.isDevelopment ? 100 : 5,
+  limit: 100,
 })
 
 /** Login. Slows credential stuffing against staff accounts. */
