@@ -91,9 +91,10 @@ const branches = [
   ...branch,
   phone: SHARED_PHONE,
   // Same hours and cutoff for all four, on the client's instruction for now.
-  // ⚠️ NUST H-12 almost certainly differs — it trades inside a university building, which
-  // is unlikely to be open until 03:00. Real per-branch hours are still to come; the
-  // server enforces this window, so until then that branch will accept orders at 2am.
+  // ⚠️ UNCONFIRMED for NUST H-12 — it trades inside a university building, which is
+  // unlikely to be open until 03:00. The schema is per-branch, so correcting it is this
+  // one value; until someone does, the server will enforce a window that branch almost
+  // certainly does not keep. See the BRANCH HOURS warning the seed prints.
   hours: { open: '11:00', close: '03:00' },
   deliveryRadiusKm: 2,
   lastOrderBufferMinutes: 30,
@@ -411,6 +412,12 @@ async function seed() {
   logger.warn(
     'BRANCH PHONE: all four share the storefront line. Per-branch numbers are still owed ' +
       'and matter — every WhatsApp template ends with "call us on <branch number>".'
+  )
+  logger.warn(
+    'BRANCH HOURS: NUST H-12 is seeded with the shared 11:00-03:00 window, UNCONFIRMED. ' +
+      'It trades inside a university building and is unlikely to keep those hours, so ' +
+      'until the real ones are confirmed that branch will accept orders at 2am and the ' +
+      'kitchen will not be there to make them. One value per branch to correct.'
   )
   logger.warn(
     'NO PRODUCT IMAGES: the catalogue seeds with an empty images array. Uploading them ' +
