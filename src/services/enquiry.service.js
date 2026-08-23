@@ -1,17 +1,29 @@
 import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
 import { Enquiry } from '../models/Enquiry.js'
+import { ENQUIRY_KIND } from '../config/constants.js'
 import { sendEmail } from './email.service.js'
+import { notifyEnquiryReceived } from './notification.service.js'
 
-const DEFAULT_SUBJECT = 'Corporate gifting enquiry'
+/**
+ * The subject says which queue this belongs to, because the shop's inbox is where both
+ * land and a sales lead deserves a different reaction from a question about nut
+ * allergies. Someone scanning unread subjects should be able to tell without opening one.
+ */
+const SUBJECTS = Object.freeze({
+  [ENQUIRY_KIND.CORPORATE]: 'Corporate gifting enquiry',
+  [ENQUIRY_KIND.QUESTION]: 'Question from the website',
+})
 
 /** What lands in the shop's inbox. Plain text on purpose — it is read, not admired. */
 function notificationBody(enquiry) {
-  const lines = [
-    `Name:     ${enquiry.name}`,
-    `Phone:    ${enquiry.phone}`,
-    `Email:    ${enquiry.email}`,
-  ]
+  const lines = [`Name:     ${enquiry.name}`]
+
+  // Optional on a question, and an empty "Phone:" line reads as a number that failed to
+  // save rather than one that was never asked for.
+  if (enquiry.phone) lines.push(`Phone:    ${enquiry.phone}`)
+
+  lines.push(`Email:    ${enquiry.email}`)
 
   if (enquiry.company) lines.push(`Company:  ${enquiry.company}`)
   if (enquiry.subject) lines.push(`Subject:  ${enquiry.subject}`)
@@ -46,13 +58,19 @@ function notificationBody(enquiry) {
  * server — and the rule most worth testing here is precisely what happens when that send
  * throws. Same shape as the `{ now }` seam in `customerAuth.service.js`.
  */
-export async function create(input, { ip = '', userAgent = '' } = {}, { send = sendEmail } = {}) {
+export async function create(
+  input,
+  { ip = '', userAgent = '' } = {},
+  { send = sendEmail, notifications = undefined } = {}
+) {
   const enquiry = await Enquiry.create({ ...input, meta: { ip, userAgent } })
 
   try {
     await send({
       to: env.ENQUIRY_NOTIFY_EMAIL,
-      subject: `${DEFAULT_SUBJECT}${enquiry.company ? ` — ${enquiry.company}` : ''}`,
+      subject: `${SUBJECTS[enquiry.kind] ?? SUBJECTS[ENQUIRY_KIND.CORPORATE]}${
+        enquiry.company ? ` — ${enquiry.company}` : ''
+      }`,
       text: notificationBody(enquiry),
       // So hitting reply in the shop's inbox writes to the customer rather than to
       // the shop itself.
@@ -67,6 +85,12 @@ export async function create(input, { ip = '', userAgent = '' } = {}, { send = s
       'Corporate enquiry saved but the notification email failed to send'
     )
   }
+
+  // A second nudge on the same event, on a channel someone actually watches. The email
+  // carries the whole message and can be replied to; this is the one that gets seen
+  // within the hour. It never throws — see notification.service.js — so it needs no
+  // try/catch of its own, and a WhatsApp outage cannot cost the shop the lead.
+  await notifyEnquiryReceived(enquiry, notifications)
 
   return enquiry
 }

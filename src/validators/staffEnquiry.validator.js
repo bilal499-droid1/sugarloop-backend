@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ENQUIRY_STATUS } from '../config/constants.js'
+import { ENQUIRY_KIND, ENQUIRY_STATUS } from '../config/constants.js'
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id')
 
@@ -7,6 +7,14 @@ export const idParamSchema = z.object({ id: objectId })
 
 export const listEnquiriesSchema = z.object({
   status: z.enum(Object.values(ENQUIRY_STATUS)).optional(),
+
+  /**
+   * Sales leads and customer questions are different jobs, done by different people at
+   * different urgencies. Omitted, the inbox shows both — the default a new admin should
+   * see, since a filter that hides half the queue by default is how a queue gets
+   * forgotten.
+   */
+  kind: z.enum(Object.values(ENQUIRY_KIND)).optional(),
 
   /**
    * `?emailed=false` finds the leads nobody has been told about — the ones whose

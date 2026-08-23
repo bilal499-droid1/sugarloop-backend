@@ -1,8 +1,11 @@
 import mongoose from 'mongoose'
-import { ENQUIRY_STATUS } from '../config/constants.js'
+import { ENQUIRY_KIND, ENQUIRY_STATUS } from '../config/constants.js'
 
 /**
- * A corporate gifting enquiry (BACKEND-DESIGN §3, `enquiries`).
+ * Something a member of the public asked us (BACKEND-DESIGN §3, `enquiries`).
+ *
+ * Two kinds share this collection: a corporate gifting lead and a question from the FAQ
+ * page. See `kind` below for why they are one collection and not two.
  *
  * **Stored first, emailed second.** The email is how anyone finds out about a lead, but
  * it is not where the lead lives: SMTP fails, inboxes filter, and a company asking about
@@ -12,6 +15,20 @@ import { ENQUIRY_STATUS } from '../config/constants.js'
  */
 const enquirySchema = new mongoose.Schema(
   {
+    /**
+     * Which public form this came from. See ENQUIRY_KIND.
+     *
+     * Defaulted to `corporate` rather than left required, because every row written
+     * before the FAQ form existed is a corporate lead — so the default backfills the
+     * existing collection correctly and no migration is needed.
+     */
+    kind: {
+      type: String,
+      enum: Object.values(ENQUIRY_KIND),
+      default: ENQUIRY_KIND.CORPORATE,
+      index: true,
+    },
+
     name: { type: String, required: true, trim: true, maxlength: 120 },
 
     /**
@@ -19,8 +36,21 @@ const enquirySchema = new mongoose.Schema(
      * demand a Pakistani mobile. A company's contact number is as likely to be a
      * landline (`+92 51 …`) or a UAN, and refusing a real corporate lead over the shape
      * of its switchboard number would be the wrong trade entirely.
+     *
+     * Required for a corporate lead — somebody is going to ring them about a quote — and
+     * optional for a question, where the answer goes back by email and demanding a phone
+     * number to ask whether the donuts contain nuts would lose more questions than it
+     * helps anyone answer.
      */
-    phone: { type: String, required: true, trim: true, maxlength: 32 },
+    phone: {
+      type: String,
+      required() {
+        return this.kind === ENQUIRY_KIND.CORPORATE
+      },
+      trim: true,
+      maxlength: 32,
+      default: '',
+    },
 
     /** The reply channel, so it is the one field that has to be genuinely valid. */
     email: {
@@ -82,5 +112,9 @@ const enquirySchema = new mongoose.Schema(
 // the ones nobody has dealt with yet.
 enquirySchema.index({ createdAt: -1 })
 enquirySchema.index({ status: 1, createdAt: -1 })
+// The inbox is worked one kind at a time — sales leads and customer questions are
+// different jobs — so the kind almost always narrows the status query rather than
+// standing on its own.
+enquirySchema.index({ kind: 1, status: 1, createdAt: -1 })
 
 export const Enquiry = mongoose.model('Enquiry', enquirySchema)

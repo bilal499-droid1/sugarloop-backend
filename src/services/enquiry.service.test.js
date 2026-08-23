@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { Enquiry } from '../models/Enquiry.js'
-import { ENQUIRY_STATUS } from '../config/constants.js'
+import { ENQUIRY_KIND, ENQUIRY_STATUS } from '../config/constants.js'
 import * as enquiryService from './enquiry.service.js'
 import { createEnquirySchema } from '../validators/enquiry.validator.js'
 import { connectTestDatabase, disconnectTestDatabase } from '../testing/mongoTestDb.js'
@@ -107,6 +107,61 @@ test('corporate enquiries', { skip, concurrency: false }, async (t) => {
     assert.match(body, /\+92 51 111 557 799/)
     assert.match(body, /ayesha@examplecorp\.pk/)
   })
+
+  /**
+   * FAQ questions share this collection with corporate leads, so the rules worth
+   * covering are the ones that differ: a phone number is the point of a sales lead and
+   * an obstacle on a question.
+   */
+  await t.test('a question stores without a phone and emails its own subject', async () => {
+    const sent = []
+    const send = async (message) => {
+      sent.push(message)
+      return { transport: 'test', messageId: 'x' }
+    }
+
+    const enquiry = await enquiryService.create(
+      createEnquirySchema.parse({
+        kind: ENQUIRY_KIND.QUESTION,
+        name: 'Bilal',
+        email: 'bilal@example.pk',
+        message: 'Do the crafted donuts contain nuts?',
+      }),
+      { ip: '1.2.3.4', userAgent: 'test' },
+      { send }
+    )
+
+    assert.equal(enquiry.kind, ENQUIRY_KIND.QUESTION)
+    assert.equal(enquiry.phone, '')
+    assert.equal(enquiry.status, ENQUIRY_STATUS.NEW)
+    assert.ok(enquiry.emailedAt, 'the send succeeded, so it is recorded')
+
+    assert.match(sent[0].subject, /Question from the website/)
+    // An empty "Phone:" line reads as a number that failed to save.
+    assert.ok(!sent[0].text.includes('Phone:'), 'no blank phone line on a question')
+    assert.match(sent[0].text, /Do the crafted donuts contain nuts\?/)
+  })
+
+  await t.test('a question survives the notification email failing', async () => {
+    const failing = async () => {
+      throw new Error('SMTP is down')
+    }
+
+    const enquiry = await enquiryService.create(
+      createEnquirySchema.parse({
+        kind: ENQUIRY_KIND.QUESTION,
+        name: 'Bilal',
+        email: 'bilal@example.pk',
+        message: 'Do the crafted donuts contain nuts?',
+      }),
+      {},
+      { send: failing }
+    )
+
+    const stored = await Enquiry.findById(enquiry._id)
+    assert.ok(stored, 'the question is the record; the email is only the notification')
+    assert.equal(stored.emailedAt, null, 'flagged as nobody-has-been-told')
+  })
 })
 
 /** Schema-level, so these run with or without a database. */
@@ -170,5 +225,53 @@ test('createEnquirySchema', async (t) => {
       }).success,
       false
     )
+  })
+
+  /**
+
+  /** The two kinds diverge on which fields are mandatory. */
+  await t.test('a question is accepted with no phone number', () => {
+    const result = createEnquirySchema.safeParse({
+      kind: ENQUIRY_KIND.QUESTION,
+      name: 'Bilal',
+      email: 'bilal@example.pk',
+      message: 'Do the crafted donuts contain nuts?',
+    })
+
+    assert.equal(result.success, true)
+  })
+
+  await t.test('a corporate lead still demands a phone number', () => {
+    const result = createEnquirySchema.safeParse({
+      kind: ENQUIRY_KIND.CORPORATE,
+      name: 'Ayesha',
+      email: 'a@b.pk',
+    })
+
+    assert.equal(result.success, false)
+    assert.equal(result.error.issues[0].path[0], 'phone')
+  })
+
+  await t.test('a question with nothing in it is rejected', () => {
+    // The corporate form is deliberately looser, but there is nothing here to answer.
+    const result = createEnquirySchema.safeParse({
+      kind: ENQUIRY_KIND.QUESTION,
+      name: 'Bilal',
+      email: 'bilal@example.pk',
+    })
+
+    assert.equal(result.success, false)
+    assert.equal(result.error.issues[0].path[0], 'message')
+  })
+
+  await t.test('defaults to corporate when the form does not say', () => {
+    // The corporate form predates `kind` and does not send it. It must keep working.
+    const parsed = createEnquirySchema.parse({
+      name: 'Ayesha',
+      phone: '03001234567',
+      email: 'a@b.pk',
+    })
+
+    assert.equal(parsed.kind, ENQUIRY_KIND.CORPORATE)
   })
 })

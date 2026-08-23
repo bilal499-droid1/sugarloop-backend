@@ -38,6 +38,10 @@ export function staffEnquiryView(enquiry) {
   return {
     id: String(enquiry._id),
     reference: String(enquiry._id).slice(-8).toUpperCase(),
+    // Which queue this belongs to. The screen sorts sales leads from customer questions
+    // on it, and they are worked differently enough that showing them as one list without
+    // saying which is which is how a 200-box lead gets buried.
+    kind: enquiry.kind,
     name: enquiry.name,
     phone: enquiry.phone,
     email: enquiry.email,

@@ -157,6 +157,23 @@ export const ENQUIRY_STATUS = Object.freeze({
 })
 
 /**
+ * What kind of thing came in through a public form.
+ *
+ * Both land in the same collection and the same inbox because they are the same shape —
+ * somebody asked something, somebody has to answer, and the answering has to be tracked.
+ * A second collection would mean a second screen, a second notification path and a second
+ * place to forget to look.
+ *
+ * They are told apart because the work is different: `corporate` is a sales lead worth
+ * chasing, `question` is a customer waiting on an answer. Mixing them silently would let
+ * a 200-box enquiry sit behind a fortnight of questions about nut allergies.
+ */
+export const ENQUIRY_KIND = Object.freeze({
+  CORPORATE: 'corporate',
+  QUESTION: 'question',
+})
+
+/**
  * FBR is not integrated in Phase 1, but every order carries the fiscal shape so
  * switching it on later is a config change rather than a data migration. See §9b.
  */

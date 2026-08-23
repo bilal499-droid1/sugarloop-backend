@@ -65,6 +65,8 @@ to start if one is missing — a config mistake should fail on deploy, not at 2a
 | `SEED_ADMIN_PASSWORD` | seed script only; the API never reads it |
 | `EMAIL_TRANSPORT` | `log` prints and sends nothing; `smtp` needs `SMTP_HOST/USER/PASSWORD`. Refused in production as `log` |
 | `ENQUIRY_NOTIFY_EMAIL` | where corporate gifting enquiries land |
+| `NOTIFY_TRANSPORT` | order notifications. `log` renders and sends nothing; `whatsapp` needs the Meta account. Refused in production as `log` |
+| `ENQUIRY_NOTIFY_PHONE` | where the WhatsApp copy of an enquiry goes. Empty skips it; the email is unaffected |
 
 ### Email (corporate gifting notifications)
 
@@ -161,7 +163,7 @@ GET  /branches/:code                 DHA1 · DHA2 · BAH4 · NUST
 
 POST /checkout/quote                 prices a cart — the server, never the browser
 
-POST /enquiries                      corporate gifting — stored, then emailed
+POST /enquiries                      corporate gifting or an FAQ question — stored, then emailed
 ```
 
 `POST /checkout/quote` takes ids and quantities only:
@@ -198,14 +200,28 @@ after pricing succeeds so a rejected cart never burns a number.
 are sequential and enumerable, so an unguarded lookup would hand over every customer's
 address by counting. This is interim — Sprint 2's phone-OTP session replaces it.
 
-`POST /enquiries` takes `{ name, phone, email, company?, subject?, message? }`. Only the
-first three are required — a company typing a name, a number and "200 boxes for Eid" is a
+`POST /enquiries` takes `{ kind?, name, phone?, email, company?, subject?, message? }` and
+serves two forms.
+
+`kind: "corporate"` is the default and the gifting form: name, phone and email required,
+everything else optional — a company typing a name, a number and "200 boxes for Eid" is a
 lead worth having, and arguing with them about which box they left empty is not. The phone
 rule is deliberately looser than the customer one used for orders: a corporate contact is
 as likely to give a landline or a UAN as a mobile.
 
-**The lead is stored first and emailed second, and the email is not allowed to fail the
-request.** SMTP goes down, inboxes filter, and a company asking about a 200-box order is
+`kind: "question"` is the FAQ page's ask box. **The phone is optional and the message is
+required**, which is the corporate rule turned around: a lead gets rung up, a question gets
+answered by email, and demanding a number before somebody may ask whether the donuts
+contain nuts loses more questions than the number could ever help answer.
+
+Both land in the same collection and the same admin inbox, because they are the same shape
+— somebody asked, somebody has to answer, and the answering has to be tracked. They carry
+`kind` so the work can be told apart: `/staff/enquiries?kind=corporate` is the sales queue,
+and an unlabelled list is how a 200-box lead ends up behind a fortnight of allergy
+questions.
+
+**Whichever kind it is, the lead is stored first and emailed second, and the email is not
+allowed to fail the request.** SMTP goes down, inboxes filter, and a company asking about a 200-box order is
 not something to lose to a spam folder. A send that fails leaves `emailedAt` null and logs
 loudly — that is the flag for "nobody has been told about this one". Email needs
 `EMAIL_TRANSPORT=smtp` and the four `SMTP_*` variables; the default `log` transport prints
@@ -235,7 +251,7 @@ PATCH  /staff/orders/:id/status      { status, reason?, note? }
 GET    /staff/stock                  ?branchId= &category= &inStock=
 PATCH  /staff/stock/:productId       { inStock, branchId? }
 
-GET    /staff/enquiries              admin only — ?status= &emailed= &search=
+GET    /staff/enquiries              admin only — ?status= &kind= &emailed= &search=
 GET    /staff/enquiries/summary      counts per status + how many never emailed
 GET    /staff/enquiries/:id
 PATCH  /staff/enquiries/:id          { status?, note? }
@@ -289,6 +305,39 @@ Transitions are conditional writes. Two managers on a 15s-polling board who clic
 button get one success and one `409` telling the loser to refresh, rather than two
 transitions appended to one order. Every move and every stock toggle writes an `auditLog`
 row with the actor, the order number or SKU, and the before/after.
+
+### Notifications
+
+Six WhatsApp templates, wired to the events that fire them: an order placed messages the
+customer **and** the branch that has to make it, and `out_for_delivery`,
+`ready_for_pickup` and `completed` message the customer. A corporate enquiry pings the
+admin alongside the email it already sends.
+
+`confirmed` and `preparing` deliberately send nothing. They are kitchen bookkeeping, and a
+shop that messages twice in five minutes to say "we have seen it" and then "we have started
+it" trains customers to mute the number that later carries their OTP. `failed` is silent
+too: it is the one status that needs a person explaining what happened and what the
+customer gets instead, which the fail-reason form already prompts the branch to do.
+
+**Nothing in `notification.service.js` is allowed to throw.** Every caller is a write that
+already succeeded — the order is placed, the status has moved, the lead is stored. A send
+that failed must not turn any of those into a 500, because the operator would then repeat
+an action that already happened: a second transition on an order, or a customer told their
+order failed while a rider is on the way. It swallows and logs, exactly as `audit.service`
+does and for the same reason.
+
+Delivery runs on `NOTIFY_TRANSPORT`, a swappable transport like OTP and email. `log`
+renders the message to the console and is refused at boot in production — a shop whose
+branches are never told an order arrived is an order nobody makes. `whatsapp` is the Meta
+Cloud API and is **not implemented**: the six templates are Utility category and each needs
+its own approval, which is the client's Meta Business account to obtain. It is a separate
+switch from `OTP_TRANSPORT` on purpose — `sugarloop_otp` is Authentication category and
+reviewed independently, so a working OTP flow should not wait on the slowest order
+template.
+
+What this does *not* do yet is record whether a message arrived. Meta reports that
+asynchronously on the inbound webhook, which is the next piece of work; until it exists the
+log stream is the record.
 
 ---
 
@@ -388,9 +437,14 @@ their address cannot be found and pushed to the location button instead. Switchi
 Google is two lines in `.env` — see `GEOCODER` there. Lookups are cached for 90 days, so
 Google's 10,000 free/month is far more than this shop will use.
 
-Sprint 2 and beyond: WhatsApp Cloud API, SMS fallback, BullMQ status timers, the
-unacknowledged-order escalation, PDF invoices, daily reports, admin product CRUD,
-Cloudinary uploads.
+Sprint 2 and beyond: the WhatsApp Cloud API send itself, SMS fallback, the inbound webhook
+and auto-reply, BullMQ status timers, the unacknowledged-order escalation, PDF invoices,
+daily reports, admin product CRUD, Cloudinary uploads.
+
+**Order notifications are wired and firing** — every event, every recipient, every
+template, on the `log` transport. What is missing is one function: the HTTP call to Meta in
+`notification.service.js`, which cannot be written against an account that does not exist.
+See [Notifications](#notifications).
 
 **Corporate enquiries are in, end to end.** `POST /enquiries` stores the lead and emails
 the shop, the storefront form posts to it instead of opening a `mailto:` draft, and
@@ -405,8 +459,11 @@ removing one would erase the evidence that a company ever asked.
 - **Branch phone numbers** — all four share the single storefront line. Real per-branch
   numbers are still owed, and matter: every WhatsApp template ends with "call us on
   `<branch number>`".
-- **NUST H-12 hours** — seeded 11:00–03:00 like the rest, but it trades inside a university
-  building and almost certainly closes earlier. Until corrected it will accept 2am orders.
+- **NUST H-12 hours** — seeded 11:00–03:00 like the rest and **unconfirmed**. It trades
+  inside a university building and is unlikely to keep those hours, so until the real ones
+  arrive that branch will accept an order at 2am and the kitchen will not be there to make
+  it. The schema is per-branch, so correcting it is one value; the seed now warns about it
+  by name on every run rather than leaving it to a code comment.
 - **Product images** — seeded empty. Blocked on moving Cloudinary to a client-owned
   account; `itemData.js` keeps the frontend asset names so the mapping is not lost.
 - **Delivery coverage** — at 2 km the four branches cover ~48 km² of Islamabad. Not a

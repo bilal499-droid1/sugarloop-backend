@@ -11,7 +11,7 @@
  */
 import { Enquiry } from '../models/Enquiry.js'
 import { ApiError } from '../utils/ApiError.js'
-import { ENQUIRY_STATUS } from '../config/constants.js'
+import { ENQUIRY_KIND, ENQUIRY_STATUS } from '../config/constants.js'
 import * as audit from './audit.service.js'
 
 /** User input reaches a regex here, so metacharacters have to stop being metacharacters. */
@@ -25,9 +25,10 @@ async function findOrThrow(id) {
   return enquiry
 }
 
-export async function list({ status, emailed, search, limit, cursor }) {
+export async function list({ status, kind, emailed, search, limit, cursor }) {
   const filter = {}
   if (status) filter.status = status
+  if (kind) filter.kind = kind
   // `emailedAt: null` is the "nobody has been told about this" case. Written as a null
   // check rather than `$exists` because the field always exists — it is defaulted.
   if (emailed !== undefined) filter.emailedAt = emailed ? { $ne: null } : null
@@ -61,8 +62,9 @@ export async function list({ status, emailed, search, limit, cursor }) {
 
 /** Counts for the filter chips, so the screen can say "4 new" without fetching 4 pages. */
 export async function summary() {
-  const [byStatus, unemailed] = await Promise.all([
+  const [byStatus, byKind, unemailed] = await Promise.all([
     Enquiry.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Enquiry.aggregate([{ $group: { _id: '$kind', count: { $sum: 1 } } }]),
     Enquiry.countDocuments({ emailedAt: null }),
   ])
 
@@ -71,7 +73,26 @@ export async function summary() {
     if (row._id in counts) counts[row._id] = row.count
   }
 
-  return { ...counts, unemailed, total: Object.values(counts).reduce((a, b) => a + b, 0) }
+  /**
+   * Counted separately rather than nested inside the status breakdown. The screen asks
+   * two different questions — "how much is outstanding" and "how much of it is sales" —
+   * and a status×kind matrix answers neither without the caller doing arithmetic.
+   *
+   * Rows written before `kind` existed group under `null`, so they are folded into
+   * `corporate`: that is what they were, and the schema default says the same.
+   */
+  const kinds = Object.fromEntries(Object.values(ENQUIRY_KIND).map((value) => [value, 0]))
+  for (const row of byKind) {
+    const key = row._id ?? ENQUIRY_KIND.CORPORATE
+    if (key in kinds) kinds[key] += row.count
+  }
+
+  return {
+    ...counts,
+    kinds,
+    unemailed,
+    total: Object.values(counts).reduce((a, b) => a + b, 0),
+  }
 }
 
 export async function getById(id) {
