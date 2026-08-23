@@ -68,3 +68,57 @@ export function productListView(products, stockOf = null) {
     productView(product, { inStock: stockOf ? stockOf(product._id) : undefined })
   )
 }
+
+/**
+ * The same product as an admin managing the catalogue sees it.
+ *
+ * Deliberately wider than `productView`, because the public view hides exactly the
+ * fields this screen exists to edit: `sortOrder` is merchandising, `isActive` is whether
+ * the item is on the menu at all, and both are meaningless to a customer and essential
+ * to whoever is arranging the list.
+ *
+ * Still withheld, even here:
+ *
+ * - `images[].publicId` — Cloudinary's handle, and the argument to a destroy call.
+ *   Nothing in the console deletes an asset yet; it can be added when the upload
+ *   pipeline lands, rather than published now on the chance it becomes useful.
+ * - `pctCode`, `taxRatePercent`, `priceIncludesTax` — dormant FBR fields (design §9b).
+ *   Nothing may edit them until the integration is real, and showing an editable-looking
+ *   tax rate of 0 is an invitation to change it.
+ *
+ * `price` stays in stored form — Rs 299 is 29900 — with `priceFormatted` alongside, so
+ * the client renders the string and submits the integer and never divides by 100.
+ */
+export function staffProductView(product) {
+  const view = {
+    id: String(product._id),
+    sku: product.sku,
+    slug: product.slug,
+    name: product.name,
+    category: product.category,
+    type: product.type,
+
+    price: product.price,
+    priceFormatted: product.priceFormatted,
+
+    description: product.description,
+    allergens: product.allergens ?? [],
+    images: (product.images ?? []).map(imageView),
+
+    boxEligible: product.boxEligible,
+    isFeatured: product.isFeatured,
+    sortOrder: product.sortOrder,
+    isActive: product.isActive,
+
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+  }
+
+  if (product.legacyId != null) view.legacyId = product.legacyId
+
+  return view
+}
+
+export function staffProductListView(products) {
+  return products.map(staffProductView)
+}

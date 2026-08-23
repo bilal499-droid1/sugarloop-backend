@@ -259,6 +259,12 @@ GET    /staff/enquiries              admin only — ?status= &kind= &emailed= &s
 GET    /staff/enquiries/summary      counts per status + how many never emailed
 GET    /staff/enquiries/:id
 PATCH  /staff/enquiries/:id          { status?, note? }
+
+GET    /staff/products               admin only — ?category= &isActive= &boxEligible= &search=
+POST   /staff/products
+GET    /staff/products/:id
+PATCH  /staff/products/:id
+DELETE /staff/products/:id           discontinues — never removes
 ```
 
 Access tokens last 15 minutes; refresh tokens 7 days and rotate on every use.
@@ -309,6 +315,35 @@ Transitions are conditional writes. Two managers on a 15s-polling board who clic
 button get one success and one `409` telling the loser to refresh, rather than two
 transitions appended to one order. Every move and every stock toggle writes an `auditLog`
 row with the actor, the order number or SKU, and the before/after.
+
+### The catalogue
+
+`/staff/products` is **admin only**, and a branch manager has no write to it at all. That
+is the rule the pricing engine rests on: one global price list, with only availability
+varying by shop. A manager who could edit a price could quietly undercut the other three.
+
+**Prices are sent as paisa and nothing negotiates about it.** `29900` is Rs 299. The
+validator rejects a float and rejects a string, and its message spells the conversion out,
+because the mistake worth guarding against is not a typo — it is sending `299` and meaning
+Rs 299. That is a valid integer and a real price of Rs 2.99; nothing downstream can tell
+the difference, and the first sign would be the day's takings. The console shows rupees
+and converts once, on submit.
+
+**`DELETE` discontinues. Nothing here removes a document.** Every order line references a
+product, and an order whose lines cannot resolve one is an order nobody can reprint,
+refund or dispute. Discontinuing takes the item off the site everywhere — which is what
+"delete" means to whoever clicked it — and `PATCH { isActive: true }` puts it back, which
+is why there is no separate restore route. This is distinct from a stock toggle: that is
+one branch saying the tray is empty today.
+
+`sku` cannot be edited after creation. It is the key Nimbus POS maps against in Phase 2,
+and changing it silently re-points that mapping at a different item. `slug` is derived
+from the name when not supplied, and `legacyId` cannot be set at all — it exists only to
+map the seeded 43 onto the numeric ids real localStorage carts are keyed by.
+
+Every write is audited, and a price change is recorded in rupees as well as paisa:
+`price: { from: 42900, to: 49900 }` is correct and unreadable when somebody is checking
+the trail against a printed menu. An edit that changes nothing writes no row.
 
 ### Notifications
 
