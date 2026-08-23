@@ -3,19 +3,23 @@
 Ordering API for Sugarloop — a Cash-on-Delivery donut shop with four branches in
 Islamabad. Node + Express + Mongoose + Zod on MongoDB, MVC layout, REST at `/api/v1`.
 
-**Status: Sprint 1 feature-complete; not yet deployable.** A customer can browse the menu,
-be quoted a price the server computed, **verify their phone by OTP**, and **place a
-Cash-on-Delivery order**; a branch can then **work that order through to completion** and
-toggle its own stock.
+**Status: Sprint 1 feature-complete; runs locally.** A customer can browse the menu, be
+quoted a price the server computed, **verify their phone by OTP**, and **place a
+Cash-on-Delivery order**; a branch can then **work that order through to completion**,
+toggle its own stock, and work the corporate gifting inbox. Order notifications fire on
+every event that should send one.
 
-Two things stand between this and real customers, and neither is code we can finish alone:
+⚠️ **This project is not deployed and is not being deployed for now.** There is
+deliberately no CI, no Dockerfile and no hosting config in this repo — that is a decision,
+not an omission, so please don't add any. `npm run check` is the gate.
 
-- **Nothing actually delivers an OTP.** WhatsApp needs the client's Meta Business account
-  and per-template approval (1–3 days each, ×7 templates); SMS needs a Twilio account.
-  Until one exists, `OTP_TRANSPORT=log` prints codes to the console and the server refuses
-  to boot in production. **This is calendar time, not dev time — start the application now.**
-- **There is no deploy.** No staging, no CI, and the accounts (Atlas, Render) still need to
-  be created in the client's name.
+One thing stands between this and real customers, and it is not code we can finish alone:
+
+- **Nothing actually delivers a message.** WhatsApp needs the client's Meta Business
+  account and per-template approval (1–3 days each, ×7 templates); SMS needs a Twilio
+  account. Until one exists, `OTP_TRANSPORT=log` and `NOTIFY_TRANSPORT=log` render to the
+  console and send nothing, and the server refuses to boot in production on either.
+  **This is calendar time, not dev time — start the application now.**
 
 See [Roadmap](#roadmap).
 
@@ -134,7 +138,7 @@ npm run email:test   # proves the mailer works — see Email above
 npm run lint
 npm test             # node:test, no framework
 npm run test:watch
-npm run check        # lint + test — what CI should run
+npm run check        # lint + test — run this before every commit; there is no CI
 npm run test:api     # newman against the Postman collection (needs the server up)
 ```
 
@@ -418,7 +422,7 @@ the expensive migration this design exists to avoid.
 
 | Step | State |
 |---|---|
-| 1 Skeleton | ✅ local — no staging deploy, no CI |
+| 1 Skeleton | ✅ local — deployment is deliberately out of scope |
 | 2 Models + seed | ✅ |
 | 3 Catalogue endpoints | ✅ |
 | 4 Hours engine | ✅ |
@@ -428,7 +432,10 @@ the expensive migration this design exists to avoid.
 | 8 Order status + stock toggles | ✅ |
 | Customer phone OTP | ✅ pulled forward from sprint 2 — `POST /orders` is gated on it |
 | 9 Geocoding + branch assignment | ✅ `POST /branches/resolve`, cached, provider-swappable |
-| **10 Staging deploy** | ❌ **next** |
+| Corporate enquiries + FAQ questions | ✅ public forms, admin inbox, per-kind queues |
+| Order notifications | ✅ wired to every event — **the send itself is the stub** |
+| 10 Staging deploy | ⛔ out of scope, by decision |
+| **WhatsApp / SMS send** | ❌ **next** — one function each, blocked on the Meta account |
 
 **Geocoding runs on OpenStreetMap until a Maps key exists.** That is a real quality gap,
 not just a config placeholder: Nominatim resolves areas well (`DHA Phase 2 Islamabad`) but
