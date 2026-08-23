@@ -34,6 +34,26 @@ export function testDatabaseUri(suite) {
 export async function connectTestDatabase(suite) {
   try {
     await mongoose.connect(testDatabaseUri(suite), { serverSelectionTimeoutMS: 2000 })
+
+    /**
+     * Wait for every index to exist before any test runs a query.
+     *
+     * Mongoose builds indexes in the BACKGROUND on first use, so a suite can issue its
+     * first query before they are ready. Most queries do not care — they just run
+     * unindexed and are slower. `$geoNear` is the exception: it is not an optimisation
+     * there but a requirement, and without the 2dsphere index on `Branch.location` it
+     * fails outright with "$geoNear requires a 2d or 2dsphere index".
+     *
+     * That made branch-assignment tests fail intermittently, and only when the machine
+     * was busy enough for the race to be lost — which is the worst kind of flake, because
+     * it looks like the code under test and disappears when you go looking for it.
+     *
+     * `Model.init()` resolves once a model's indexes are built. Every model imported by
+     * the suite is registered by now: ES module imports are evaluated before the
+     * top-level await that calls this.
+     */
+    await Promise.all(mongoose.modelNames().map((name) => mongoose.model(name).init()))
+
     return { connected: true, skip: false }
   } catch {
     return { connected: false, skip: 'MongoDB unreachable — integration tests skipped' }
