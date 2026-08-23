@@ -17,6 +17,7 @@ import { assertBranchAccess } from '../middleware/auth.js'
 import { businessDayRange } from '../utils/time.js'
 import { allowedTransitions, assertTransition } from './orderStatus.js'
 import * as audit from './audit.service.js'
+import { notifyStatusChange } from './notification.service.js'
 import {
   ORDER_STATUS,
   PAYMENT_METHOD,
@@ -196,6 +197,15 @@ export async function changeStatus(id, { status: next, reason = null, note = nul
     },
     ip: context.ip,
   })
+
+  // After the audit write, and after the conditional update has already decided who won.
+  // Notifying before it would message the customer on behalf of the manager who lost the
+  // race and got a 409 — "your order is on its way", sent twice, by two people, one of
+  // whom was told their click did nothing.
+  //
+  // `branchId` is populated by the update above, so the branch phone every template signs
+  // off with is already in hand.
+  await notifyStatusChange(updated, updated.branchId, context.notifications)
 
   return updated
 }

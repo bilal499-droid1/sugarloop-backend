@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from './config/db.js'
 import { assertTransportIsProductionSafe } from './services/otpDelivery.service.js'
 import { assertGeocoderIsConfigured } from './services/geocoding.service.js'
 import { assertEmailTransportIsProductionSafe } from './services/email.service.js'
+import { assertNotifyTransportIsProductionSafe } from './services/notification.service.js'
 
 async function start() {
   // Before anything binds a port: the development OTP transport in production would mean
@@ -19,6 +20,10 @@ async function start() {
   // And the development email transport in production, which would drop every corporate
   // enquiry while the form kept telling customers someone would be in touch.
   assertEmailTransportIsProductionSafe()
+
+  // And the development notification transport in production, which would leave every
+  // customer un-messaged and — the expensive half — every branch unaware an order exists.
+  assertNotifyTransportIsProductionSafe()
 
   await connectDatabase()
 

@@ -13,6 +13,7 @@ import { ApiError } from '../utils/ApiError.js'
 import { businessDateStamp } from '../utils/time.js'
 import { FULFILMENT, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from '../config/constants.js'
 import { quote as priceQuote } from './checkout.service.js'
+import { notifyOrderPlaced } from './notification.service.js'
 
 const ORDER_PREFIX = 'SL'
 const SEQUENCE_PAD = 4
@@ -113,7 +114,11 @@ function assertPhoneWasVerified(request, verifiedPhone) {
  *                 session token, never from the body. ip/userAgent are the fraud trail
  *                 and are never returned to a client.
  */
-export async function create(request, context = {}, { now = new Date() } = {}) {
+export async function create(
+  request,
+  context = {},
+  { now = new Date(), notifications = undefined } = {}
+) {
   assertPhoneWasVerified(request, context.verifiedPhone)
 
   // Re-price from scratch. This re-runs every gate the quote ran — stock, opening hours,
@@ -189,6 +194,11 @@ export async function create(request, context = {}, { now = new Date() } = {}) {
   // The branch is already loaded; attaching it saves the caller a second query when the
   // view needs the branch name and phone for the confirmation screen.
   order.$branch = branch
+
+  // Told, not asked: the order exists and the customer has been charged nothing yet, so a
+  // notification that fails changes nothing about whether this call succeeded. `notify`
+  // swallows its own errors for that reason — see notification.service.js.
+  await notifyOrderPlaced(order, branch, notifications)
 
   return order
 }

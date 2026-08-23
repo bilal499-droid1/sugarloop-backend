@@ -36,6 +36,23 @@ const schema = z.object({
   OTP_TRANSPORT: z.enum(['log', 'whatsapp', 'sms']).default('log'),
 
   /**
+   * How order and enquiry notifications reach a phone. See services/notification.service.js.
+   *
+   * Separate from OTP_TRANSPORT even though both end up at the same Meta Cloud API,
+   * because they are approved and can fail independently: the six notification templates
+   * are Utility category, `sugarloop_otp` is Authentication, and Meta reviews each one on
+   * its own. Approvals arrive one at a time and rejections are common, so a single switch
+   * would mean holding back a working OTP flow until the last order template clears.
+   */
+  NOTIFY_TRANSPORT: z.enum(['log', 'whatsapp']).default('log'),
+
+  /**
+   * Where the WhatsApp copy of a corporate enquiry goes. Falls back to nothing rather
+   * than to a wrong number: `notify()` skips a message with no recipient and logs it.
+   */
+  ENQUIRY_NOTIFY_PHONE: z.string().default(''),
+
+  /**
    * Which geocoder turns a delivery address into coordinates. See
    * services/geocoding.service.js.
    *
