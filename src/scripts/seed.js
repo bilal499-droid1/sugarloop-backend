@@ -398,11 +398,15 @@ async function seed() {
     logger.warn('Sign in as admin@sugarloop.pk and change it before this reaches anyone else.')
   }
 
-  logger.warn(
-    'COVERAGE: at a 2 km radius the branches do NOT tile. DHA1-DHA2 are 6.4 km apart, ' +
-      'leaving a 2.4 km dead zone between them, and NUST H-12 is 13-19 km from everything ' +
-      'else. Addresses in those gaps will be refused with "we do not deliver to your area". ' +
-      'Widening to ~3.5 km closes the DHA gaps; it is one number per branch.'
+  // Reported, not warned about: each branch serving its own 2 km radius independently is
+  // the client's decision, not a misconfiguration. Branches share nothing — an address is
+  // served by the one shop that covers it, or by none. The number is here so the coverage
+  // is a known quantity rather than a surprise, and because it is one field per branch to
+  // change if the shop ever wants to reach further.
+  logger.info(
+    'COVERAGE: each branch delivers within its own 2 km radius, independently — ' +
+      'about 48 km² across the four. Addresses outside every radius are refused with ' +
+      '"we do not deliver to your area", which is the intended behaviour.'
   )
   logger.warn(
     'BRANCH PHONE: all four share the storefront line. Per-branch numbers are still owed ' +
