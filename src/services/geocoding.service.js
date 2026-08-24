@@ -100,6 +100,9 @@ async function geocodeWithNominatim(query) {
     'viewbox',
     `${VIEWBOX.minLng},${VIEWBOX.maxLat},${VIEWBOX.maxLng},${VIEWBOX.minLat}`
   )
+  // Without this, viewbox only nudges ranking — a bad match outside Islamabad/Rawalpindi
+  // can still win. `bounded=1` makes it a hard filter.
+  url.searchParams.set('bounded', '1')
 
   const results = await fetchJson(url, {
     headers: { 'User-Agent': 'Sugarloop/1.0 (ordering API)', Accept: 'application/json' },

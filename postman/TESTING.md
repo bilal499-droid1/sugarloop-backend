@@ -641,7 +641,8 @@ nust.manager@sugarloop.pk
 ### 4.3 Who am I
 ```
 GET
-http://localhost:4000/api/v1/staff/auth/me
+
+
 ```
 **Headers**
 ```
