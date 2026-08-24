@@ -42,4 +42,11 @@ router.get(
   asyncHandler(orderController.getByNumber)
 )
 
+/** The same order as a PDF the customer can keep. Gated on the same phone. */
+router.get(
+  '/:orderNumber/invoice',
+  validate({ params: orderNumberParamSchema, query: getOrderQuerySchema }),
+  asyncHandler(orderController.invoice)
+)
+
 export default router

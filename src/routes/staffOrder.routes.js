@@ -23,6 +23,12 @@ router.get('/', validate({ query: listOrdersSchema }), asyncHandler(staffOrderCo
 
 router.get('/:id', validate({ params: idParamSchema }), asyncHandler(staffOrderController.getOne))
 
+router.get(
+  '/:id/invoice',
+  validate({ params: idParamSchema }),
+  asyncHandler(staffOrderController.invoice)
+)
+
 /**
  * Moves an order through the state machine. PATCH rather than a verb-per-transition
  * (`/confirm`, `/dispatch`): the legal moves are data in `ORDER_STATUS_FLOW`, and seven

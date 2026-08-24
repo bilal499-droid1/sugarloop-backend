@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "nodemailer": "^9.0.5",
+    "pdfkit": "^0.20.1",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "rate-limit-redis": "^4.3.1",

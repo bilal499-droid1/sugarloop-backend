@@ -196,6 +196,7 @@ detail a UI needs to explain itself.
 ```
 POST /orders                         places an order
 GET  /orders/:orderNumber?phone=     one order — see the note below
+GET  /orders/:orderNumber/invoice?phone=   the same order as a PDF, same phone gate
 ```
 
 `POST /orders` is the quote plus `contact`, `address` and **`expectedTotal`** — the grand
@@ -262,6 +263,7 @@ DELETE /staff/users/:id              soft delete — deactivates, never removes
 
 GET    /staff/orders                 ?status= &fulfilment= &branchId= &date= &phone=
 GET    /staff/orders/:id             + the transitions this order may make next
+GET    /staff/orders/:id/invoice     the order as a PDF
 PATCH  /staff/orders/:id/status      { status, reason?, note? }
 
 GET    /staff/stock                  ?branchId= &category= &inStock=
@@ -271,6 +273,11 @@ GET    /staff/enquiries              admin only — ?status= &kind= &emailed= &s
 GET    /staff/enquiries/summary      counts per status + how many never emailed
 GET    /staff/enquiries/:id
 PATCH  /staff/enquiries/:id          { status?, note? }
+
+GET    /staff/reports/daily          ?date= &branchId= — one day's trading
+GET    /staff/reports/daily.pdf      the same report as a document
+GET    /staff/reports/summary        ?from= &to= &branchId= — the running total
+GET    /staff/reports/summary.pdf    the same summary as a document
 
 GET    /staff/products               admin only — ?category= &isActive= &boxEligible= &search=
 POST   /staff/products
@@ -360,6 +367,45 @@ re-send would be indistinguishable from a duplicate anyway — the wrong signal 
 The admin rung is configured (`ADMIN_ESCALATION_PHONE`) rather than looked up, because a
 `StaffUser` carries no phone number. The manager rung uses the **branch** line, which
 rings where the order is being made and reaches whoever is on shift.
+
+### Invoices and the daily report
+
+**Everything on an invoice comes off the order, never the catalogue.** An order line already
+snapshots `name`, `sku` and `unitPrice` at the moment it was placed, and an invoice is where
+that matters most: a price rise next month must not reprint last month's receipt at the new
+number, and a discontinued donut must still print on the invoice of the person who bought
+one.
+
+The customer route is gated on the same phone as the order lookup it sits beside, for the
+same reason — order numbers are sequential, so an ungated invoice would hand over every
+customer's address and basket by counting. The staff route reuses the board's own
+branch-scoped lookup, so another branch's invoice is a `404` exactly as its order is.
+
+**A day's takings counts `completed` orders and nothing else.** On Cash on Delivery,
+completion *is* collection, so takings is the sum of what was actually handed over. An order
+still `out_for_delivery` at midnight is money that may yet be refused at the door, and a
+`failed` one is money that never existed — counting either produces a number the till cannot
+reconcile against. Both are still reported, under `byStatus`, because "what did not convert"
+is the other half of the day.
+
+The day is a calendar date in `Asia/Karachi`. The shop trades to 03:00, so a UTC window ends
+five hours early and cuts the busiest part of a night in half.
+
+**`/summary` is the same arithmetic over a wider window.** `/daily` answers "what did we take
+today" and covers one day only — picking an earlier date reports that day alone, not a running
+total up to now. `/summary` answers "what have we taken so far": with no `from`/`to` it is
+every order the shop has ever completed, and either bound may be omitted for an open-ended
+range. Both dates are inclusive and expand through the same `businessDayRange`, so a range
+ending on the 18th includes the small hours after midnight, which belong to the 18th's trading
+rather than the 19th's. A `from` later than its `to` is a 422 rather than a silently empty
+report.
+
+Both share one aggregation (`compute()` in `report.service.js`) so the two can never disagree
+about what "takings" means.
+
+Report scope follows the same RBAC as the order board: a manager reads their own branch and
+is refused another's rather than silently re-scoped, and an admin reads every branch or
+narrows to one.
 
 ### The catalogue
 
@@ -517,6 +563,9 @@ the expensive migration this design exists to avoid.
 | Admin product CRUD | ✅ `/staff/products`, audited, discontinue-not-delete |
 | Redis rate limits | ✅ falls back to in-memory without `REDIS_URL` |
 | Unacknowledged-order escalation | ✅ 5 min → branch, 10 min → admin, plus the board's alarm |
+| PDF invoices | ✅ staff and customer, same gates as the order they print |
+| Daily report | ✅ JSON + PDF, branch-scoped, takings from completed orders |
+| Running sales total | ✅ `/staff/reports/summary` — all-time or a date range |
 | 10 Staging deploy | ⛔ out of scope, by decision |
 | **WhatsApp / SMS send** | ❌ **next** — one function each, blocked on the Meta account |
 
@@ -528,8 +577,7 @@ Google is two lines in `.env` — see `GEOCODER` there. Lookups are cached for 9
 Google's 10,000 free/month is far more than this shop will use.
 
 Sprint 2 and beyond: the WhatsApp Cloud API send itself, SMS fallback, the inbound webhook
-and auto-reply, BullMQ status timers, the unacknowledged-order escalation, PDF invoices,
-daily reports, admin product CRUD, Cloudinary uploads.
+and auto-reply, Cloudinary uploads.
 
 **Order notifications are wired and firing** — every event, every recipient, every
 template, on the `log` transport. What is missing is one function: the HTTP call to Meta in
