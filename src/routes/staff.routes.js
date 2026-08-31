@@ -6,6 +6,7 @@ import stockRoutes from './stock.routes.js'
 import staffEnquiryRoutes from './staffEnquiry.routes.js'
 import staffProductRoutes from './staffProduct.routes.js'
 import staffReportRoutes from './staffReport.routes.js'
+import staffBranchRoutes from './staffBranch.routes.js'
 
 const router = Router()
 
@@ -16,5 +17,6 @@ router.use('/stock', stockRoutes)
 router.use('/enquiries', staffEnquiryRoutes)
 router.use('/products', staffProductRoutes)
 router.use('/reports', staffReportRoutes)
+router.use('/branches', staffBranchRoutes)
 
 export default router
