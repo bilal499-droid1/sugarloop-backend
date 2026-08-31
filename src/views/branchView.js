@@ -54,3 +54,24 @@ export function branchView(branch, { at = new Date() } = {}) {
 export function branchListView(branches, options) {
   return branches.map((branch) => branchView(branch, options))
 }
+
+/**
+ * A branch as staff need to see it: the public shape plus the two raw switches.
+ *
+ * `isAcceptingOrders` above is a VERDICT — open, inside the cutoff, and not paused. That
+ * is the right answer for a customer and the wrong one for the manager holding the
+ * switch, because at 4am it reads false whether or not anybody paused anything. The
+ * console needs to render the switch itself, so both go out and neither is inferred from
+ * the other.
+ */
+export function staffBranchView(branch, options) {
+  return {
+    ...branchView(branch, options),
+    isActive: branch.isActive,
+    acceptingOrders: branch.acceptingOrders,
+  }
+}
+
+export function staffBranchListView(branches, options) {
+  return branches.map((branch) => staffBranchView(branch, options))
+}

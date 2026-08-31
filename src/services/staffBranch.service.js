@@ -18,6 +18,9 @@
  * anyway, without 43 rows nobody asked for.
  */
 import { Branch } from '../models/Branch.js'
+import { ApiError } from '../utils/ApiError.js'
+import { assertBranchAccess } from '../middleware/auth.js'
+import { STAFF_ROLE } from '../config/constants.js'
 import * as audit from './audit.service.js'
 
 export async function create(input, context) {
@@ -49,4 +52,82 @@ export async function create(input, context) {
   })
 
   return branch
+}
+
+const AUDITED_FIELDS = ['isActive', 'acceptingOrders']
+
+/**
+ * Flips one or both of a branch's two switches.
+ *
+ * They answer different questions and carry different authority, which is why one
+ * endpoint guards them separately rather than exposing a general branch editor:
+ *
+ *   `acceptingOrders`  the kill switch mid-rush. The branch is open and staffed, the
+ *                      kitchen is drowning, stop the queue for twenty minutes. The
+ *                      manager standing in it is exactly who should press this, so a
+ *                      branch manager may — on their OWN branch, never another's.
+ *
+ *   `isActive`         the shop is not a shop any more. It vanishes from the storefront,
+ *                      from every picker and from new orders. Admin only: closing a
+ *                      branch is not a shift decision, and a manager who could would be
+ *                      one misclick from taking their own shop off the map.
+ *
+ * Neither deletes anything. Every order stores the branch it came from, so a removed
+ * document is order history nobody can reprint or dispute — `isActive: false` is what
+ * "delete this branch" actually means, and unlike a delete it is reversible.
+ */
+export async function update(id, payload, context) {
+  const branch = await Branch.findById(id)
+  if (!branch) throw ApiError.notFound('Branch not found')
+
+  const isAdmin = context.actor.role === STAFF_ROLE.ADMIN
+
+  if (!isAdmin) {
+    // Their own branch, and only the switch their role owns. Both are 403s rather than
+    // 422s: the request is well-formed, the caller simply is not allowed to make it.
+    assertBranchAccess(context.actor, branch._id)
+
+    if (payload.isActive !== undefined) {
+      throw ApiError.forbidden('Only an admin can open or close a branch')
+    }
+  }
+
+  const before = AUDITED_FIELDS.reduce((acc, field) => {
+    acc[field] = branch[field]
+    return acc
+  }, {})
+
+  Object.assign(branch, payload)
+  await branch.save()
+
+  const changes = audit.diff(before, branch, AUDITED_FIELDS)
+
+  // A toggle set to what it already was is not worth a row — it would only make the rows
+  // that do matter harder to find.
+  if (changes) {
+    await audit.record({
+      actor: context.actor,
+      action: 'branch.update',
+      entity: 'Branch',
+      entityId: branch._id,
+      // The code is what a human scanning this trail has in hand; entityId is what a
+      // query joins on. Both, because they answer different questions.
+      changes: { code: branch.code, ...changes },
+      ip: context.ip,
+    })
+  }
+
+  return branch
+}
+
+/**
+ * Every branch, including the closed ones.
+ *
+ * The public `GET /branches` filters to `isActive: true`, which is right for a storefront
+ * and useless here: an admin looking for the shop that vanished from the site is looking
+ * for exactly the one it hides, and a console that could close a branch but never list it
+ * again could never reopen one.
+ */
+export async function list() {
+  return Branch.find().sort({ isActive: -1, code: 1 })
 }

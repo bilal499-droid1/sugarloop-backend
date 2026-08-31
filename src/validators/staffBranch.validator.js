@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { FULFILMENT } from '../config/constants.js'
 
+const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id')
+
+export const idParamSchema = z.object({ id: objectId })
+
 /** Matches the Branch model's rule, so a bad code is a 422 rather than a Mongoose throw. */
 const code = z
   .string()
@@ -47,3 +51,29 @@ export const createBranchSchema = z.object({
     .min(1, 'A branch must offer at least one fulfilment mode')
     .optional(),
 })
+
+/**
+ * The two switches, and only the two switches.
+ *
+ * Deliberately not a general branch editor. Name, address and pin are what deliveries are
+ * quoted from and what every past order was placed against; moving them is a different
+ * operation with different consequences, and bundling it into the control a manager hits
+ * mid-rush is how a shop ends up somewhere else by accident. `code` can never change at
+ * all — it is baked into every order number that branch has issued.
+ *
+ * Which of the two a caller may set is a role question, so it lives in the service rather
+ * than here: an admin may set both, a branch manager only `acceptingOrders`, and only on
+ * their own branch.
+ */
+export const updateBranchSchema = z
+  .object({
+    /** Is this a real, operating branch? Admin only — this is closing a shop. */
+    isActive: z.boolean(),
+
+    /** The kill switch mid-rush: open, but stop the queue. Managers use this one. */
+    acceptingOrders: z.boolean(),
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'Nothing to change — send isActive or acceptingOrders',
+  })
