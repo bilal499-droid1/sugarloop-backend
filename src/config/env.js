@@ -122,6 +122,36 @@ const schema = z.object({
 
   /** Where corporate gifting enquiries land. */
   ENQUIRY_NOTIFY_EMAIL: z.string().email().default('sugarlooppk@gmail.com'),
+
+  /**
+   * Product image hosting.
+   *
+   * Images were bundled into the frontend build, which works and cannot grow: the bundle
+   * joins a photo to a product by `legacyId`, so a product created through the admin
+   * console has no photo and no way to get one. Moving them to object storage makes the
+   * catalogue the single source of truth for its own pictures.
+   *
+   * S3 rather than Cloudinary because the rest of this is going to AWS, and one vendor
+   * with one bill and one set of IAM credentials beats two. `Product.images.publicId`
+   * already means "the handle needed to delete this later" — for S3 that is the object
+   * key, so the schema needed no change.
+   *
+   * Credentials are NOT read here. The AWS SDK's own chain finds them: environment,
+   * shared config file, or — on EC2 — the instance role, which involves no long-lived
+   * secret at all and is what production should use.
+   */
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().default('ap-south-1'),
+
+  /**
+   * Public base URL images are served from — the CloudFront domain, no trailing slash.
+   * Without it the bucket's own endpoint is used, which works but is uncached and
+   * requires the objects to be publicly readable.
+   */
+  ASSET_BASE_URL: z
+    .string()
+    .optional()
+    .transform((value) => value?.replace(/\/+$/, '')),
 })
 
 const parsed = schema.safeParse(process.env)
