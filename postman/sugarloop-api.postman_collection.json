@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b3f1c2d4-5a6e-4f70-9c81-2d3e4f5a6b70",
     "name": "Sugarloop API — v1",
-    "description": "Every endpoint implemented so far (Sprint 1, Steps 1-8).\n\nRun the whole thing with the Collection Runner, top to bottom — requests depend on variables set by earlier ones (branchId, accessToken, productSlug, orderId). Running a single request out of order may fail for that reason alone.\n\nRequires: the API on {{baseUrl}}, MongoDB reachable, and `npm run seed` already run.\n\nNOT YET BUILT (they will 404 — that is expected, not a bug): /auth/otp/*, /enquiries, /branches/resolve, /staff/products, /staff/reports.",
+    "description": "Every endpoint implemented so far.\n\nRun the whole thing with the Collection Runner, top to bottom — requests depend on variables set by earlier ones (branchId, accessToken, productSlug, orderId). Running a single request out of order may fail for that reason alone.\n\nRequires: the API on {{baseUrl}}, MongoDB reachable, and `npm run seed` already run.\n\nBUILT BUT NOT COVERED HERE (the API serves these; this collection simply has no requests for them yet): POST /branches/resolve, /staff/products/*, /staff/reports/*.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
