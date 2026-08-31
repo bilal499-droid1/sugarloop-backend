@@ -106,7 +106,16 @@ const schema = z.object({
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
-  SMTP_PASSWORD: z.string().optional(),
+  /**
+   * Whitespace is stripped rather than rejected. Google displays an app password as
+   * four groups of four, and pasting it exactly as shown is the obvious thing to do —
+   * but Gmail wants the 16 characters. Left alone the spaces reach the server verbatim
+   * and come back as EAUTH, which is indistinguishable from a wrong password.
+   */
+  SMTP_PASSWORD: z
+    .string()
+    .optional()
+    .transform((value) => value?.replace(/\s+/g, '')),
 
   /** The From: address. Must be one the SMTP account is allowed to send as. */
   EMAIL_FROM: z.string().default('Sugarloop <sugarlooppk@gmail.com>'),
