@@ -3832,6 +3832,538 @@
       ]
     },
     {
+      "name": "4c · Product photos (admin only)",
+      "item": [
+        {
+          "name": "Create a product to hang photos on",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Unique each run: DELETE discontinues rather than removes, so a fixed sku",
+                  "// would collide on the unique index the second time through — the same reason",
+                  "// folder 4 generates an email.",
+                  "pm.collectionVariables.set('photoSku', `QA-PHOTO-${Date.now()}`)",
+                  "pm.collectionVariables.set('photoSlug', `qa-photo-${Date.now()}`)"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201))",
+                  "const p = pm.response.json().data.product",
+                  "pm.collectionVariables.set('photoProductId', p.id)",
+                  "pm.test('starts with no photos', () => pm.expect(p.images).to.eql([]))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QA Photo Subject\",\n  \"sku\": \"{{photoSku}}\",\n  \"slug\": \"{{photoSlug}}\",\n  \"category\": \"Donuts\",\n  \"price\": 42900\n}"
+            },
+            "url": "{{baseUrl}}/staff/products"
+          }
+        },
+        {
+          "name": "Ask for somewhere to put a photo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Tolerates both deployments on purpose. Without S3_BUCKET the API answers 503",
+                  "// and says so, which is a correct answer rather than a failure — every other",
+                  "// request in this folder is checked before anything reaches S3 and still runs.",
+                  "if (pm.response.code === 503) {",
+                  "  pm.test('503 names the missing setting, rather than a bare 500', () => {",
+                  "    pm.expect(pm.response.json().error.code).to.eql('IMAGE_STORAGE_UNCONFIGURED')",
+                  "  })",
+                  "  console.log('S3_BUCKET is not set on this server — signing assertions skipped.')",
+                  "} else {",
+                  "  pm.test('201', () => pm.response.to.have.status(201))",
+                  "  const u = pm.response.json().data.upload",
+                  "  pm.collectionVariables.set('photoKey', u.key)",
+                  "",
+                  "  pm.test('the key is filed under this product', () => {",
+                  "    pm.expect(u.key).to.have.string(`products/${pm.collectionVariables.get('photoProductId')}/`)",
+                  "  })",
+                  "",
+                  "  // Sent as front.png but declared image/webp. The bytes decide, because the",
+                  "  // extension is what the CDN and everything downstream will believe.",
+                  "  pm.test('the extension follows the content type, not the filename', () => {",
+                  "    pm.expect(u.key).to.have.string('.webp')",
+                  "    pm.expect(u.key).to.not.have.string('.png')",
+                  "  })",
+                  "",
+                  "  // Returned rather than documented: a header the client has to guess is one it",
+                  "  // eventually gets wrong, and the symptom is a 403 from S3 on a URL this server",
+                  "  // just issued — which sends people reading IAM policies for an afternoon.",
+                  "  pm.test('names the exact headers the browser must send', () => {",
+                  "    pm.expect(u.headers['Content-Type']).to.eql('image/webp')",
+                  "    pm.expect(u.headers['Cache-Control']).to.have.string('immutable')",
+                  "  })",
+                  "",
+                  "  pm.test('the signature covers those headers, not just the length', () => {",
+                  "    const signed = new URL(u.uploadUrl).searchParams.get('X-Amz-SignedHeaders')",
+                  "    pm.expect(signed).to.have.string('content-type')",
+                  "    pm.expect(signed).to.have.string('cache-control')",
+                  "  })",
+                  "",
+                  "  // The SDK signs a checksum of the empty body unless told not to, and S3 then",
+                  "  // rejects every real upload with a 400 that never mentions checksums.",
+                  "  pm.test('no empty-body checksum is baked into the URL', () => {",
+                  "    pm.expect(u.uploadUrl).to.not.have.string('x-amz-checksum')",
+                  "  })",
+                  "",
+                  "  pm.test('expires quickly', () => pm.expect(u.expiresIn).to.be.at.most(900))",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"front.png\",\n  \"contentType\": \"image/webp\",\n  \"size\": 204800\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "SVG is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Not a formatting preference. An SVG is XML that may carry <script>, and these",
+                  "// files are served from the domain the storefront trusts — so accepting one is",
+                  "// stored XSS against every visitor.",
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('the message lists what is allowed', () => {",
+                  "  pm.expect(pm.response.text()).to.have.string('image/webp')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"logo.svg\",\n  \"contentType\": \"image/svg+xml\",\n  \"size\": 2048\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "A video is refused — photos only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The four homepage videos are served from Cloudinary and never touch this API.",
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"clip.mp4\",\n  \"contentType\": \"video/mp4\",\n  \"size\": 204800\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "A file over the size limit is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The declared size is signed into the URL, so this is what stops a URL issued",
+                  "// for a 200 KB photo being spent on a 2 GB file.",
+                  "pm.test('422', () => pm.response.to.have.status(422))",
+                  "pm.test('the message says the limit in MB', () => {",
+                  "  pm.expect(pm.response.text()).to.have.string('5 MB')",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"huge.jpg\",\n  \"contentType\": \"image/jpeg\",\n  \"size\": 99000000\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "A missing size is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Without it there is nothing to sign, and the URL would accept a file of any",
+                  "// length.",
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"front.webp\",\n  \"contentType\": \"image/webp\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "One product cannot claim another product's upload",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The client chooses the key, so this is the boundary between \"an admin added a",
+                  "// photo\" and \"an admin reached into another product's storage\". It matters",
+                  "// because detaching an image also deletes the object behind it — so attaching",
+                  "// someone else's key would let one product delete another's photo.",
+                  "//",
+                  "// Checked before anything reaches S3, which is why it runs without a bucket.",
+                  "pm.test('400', () => pm.response.to.have.status(400))",
+                  "pm.test('says why', () => pm.expect(pm.response.text()).to.have.string('does not belong'))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"products/{{productId}}/stolen.webp\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images"
+          }
+        },
+        {
+          "name": "Attaching to an unknown product → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"products/0123456789abcdef01234567/a.webp\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/0123456789abcdef01234567/images"
+          }
+        },
+        {
+          "name": "A malformed product id → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"products/x/a.webp\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/not-an-id/images"
+          }
+        },
+        {
+          "name": "Removing an image that is not there → 404, not a silent success",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reporting success would tell an admin their click did something.",
+                  "pm.test('404', () => pm.response.to.have.status(404))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"products/{{photoProductId}}/never-existed.webp\"\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images"
+          }
+        },
+        {
+          "name": "Removing without naming an image → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images"
+          }
+        },
+        {
+          "name": "Photos need a token like everything else → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"front.webp\",\n  \"contentType\": \"image/webp\",\n  \"size\": 1024\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "A branch manager cannot add photos → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Same rule as the rest of the catalogue: a manager's only write is the",
+                  "// per-branch stock toggle. Enforced at the router, so it covers these routes",
+                  "// without anyone remembering to add a guard.",
+                  "pm.test('403', () => pm.response.to.have.status(403))"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{managerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"front.webp\",\n  \"contentType\": \"image/webp\",\n  \"size\": 1024\n}"
+            },
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}/images/upload-url"
+          }
+        },
+        {
+          "name": "Discontinue the QA product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Housekeeping. Products are never deleted — past orders reference them — so",
+                  "// this only takes it off the menu.",
+                  "pm.test('200', () => pm.response.to.have.status(200))",
+                  "pm.test('off the menu, still resolvable', () => {",
+                  "  pm.expect(pm.response.json().data.product.isActive).to.be.false",
+                  "})"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/staff/products/{{photoProductId}}"
+          }
+        }
+      ]
+    },
+    {
       "name": "5 · Authorisation",
       "item": [
         {
@@ -4581,6 +5113,22 @@
     },
     {
       "key": "enquiryId",
+      "value": ""
+    },
+    {
+      "key": "photoSku",
+      "value": ""
+    },
+    {
+      "key": "photoSlug",
+      "value": ""
+    },
+    {
+      "key": "photoProductId",
+      "value": ""
+    },
+    {
+      "key": "photoKey",
       "value": ""
     }
   ]

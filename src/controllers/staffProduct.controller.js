@@ -37,3 +37,26 @@ export async function remove(req, res) {
   const product = await staffProductService.remove(req.params.id, contextOf(req))
   return ok(res, { product: staffProductView(product) })
 }
+
+/**
+ * Step 1 of the upload round trip: hand back a signed URL for one file.
+ *
+ * 201 rather than 200 — this creates the right to write one specific object, and the
+ * body carries the key that right is for.
+ */
+export async function createImageUpload(req, res) {
+  const upload = await staffProductService.createImageUpload(req.params.id, req.body)
+  return created(res, { upload })
+}
+
+/** Step 3: the browser reports which key it wrote, and the service verifies it. */
+export async function attachImage(req, res) {
+  const product = await staffProductService.attachImage(req.params.id, req.body, contextOf(req))
+  return created(res, { product: staffProductView(product) })
+}
+
+/** Takes the photo off the product and deletes the object behind it. */
+export async function removeImage(req, res) {
+  const product = await staffProductService.removeImage(req.params.id, req.body.key, contextOf(req))
+  return ok(res, { product: staffProductView(product) })
+}

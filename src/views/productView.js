@@ -25,6 +25,18 @@ function imageView(image) {
 }
 
 /**
+ * The same image as the admin console sees it, with `publicId`.
+ *
+ * That field is the storage handle and the argument to a delete — it is withheld from
+ * every public response and published here because the console is the one caller that
+ * needs it: DELETE /staff/products/:id/images identifies the photo to remove by exactly
+ * this value. A console that could not read it could not remove a photo it had added.
+ */
+function staffImageView(image) {
+  return { ...imageView(image), publicId: image.publicId }
+}
+
+/**
  * @param product        a Product document
  * @param options.inStock  availability at the branch the caller asked about. Omitted from
  *                         the payload entirely when undefined — see catalogue.service.js
@@ -77,11 +89,12 @@ export function productListView(products, stockOf = null) {
  * the item is on the menu at all, and both are meaningless to a customer and essential
  * to whoever is arranging the list.
  *
+ * `images[].publicId` IS published here and nowhere else. It is the storage handle and
+ * the argument to a delete call, which the console needs now that it can add and remove
+ * photos — DELETE /staff/products/:id/images names the image by exactly that value.
+ *
  * Still withheld, even here:
  *
- * - `images[].publicId` — Cloudinary's handle, and the argument to a destroy call.
- *   Nothing in the console deletes an asset yet; it can be added when the upload
- *   pipeline lands, rather than published now on the chance it becomes useful.
  * - `pctCode`, `taxRatePercent`, `priceIncludesTax` — dormant FBR fields (design §9b).
  *   Nothing may edit them until the integration is real, and showing an editable-looking
  *   tax rate of 0 is an invitation to change it.
@@ -103,7 +116,7 @@ export function staffProductView(product) {
 
     description: product.description,
     allergens: product.allergens ?? [],
-    images: (product.images ?? []).map(imageView),
+    images: (product.images ?? []).map(staffImageView),
 
     boxEligible: product.boxEligible,
     isFeatured: product.isFeatured,

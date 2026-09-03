@@ -195,6 +195,160 @@ test('admin product management', { skip, concurrency: false }, async (t) => {
       )
     )
   })
+  /* ─── Product photos ────────────────────────────────────────────────────────
+   *
+   * These cover the checks that run BEFORE anything reaches S3, which is where all the
+   * risk is: the client chooses the key, so every one of these is the boundary between
+   * "an admin added a photo" and "an admin reached into another product's storage".
+   *
+   * The signing and the S3 round trip are not covered here. They need a real bucket, and
+   * a mocked SDK would only prove the mock was called. `imageStorage.service.test.js`
+   * covers the key rules those depend on.
+   */
+
+  /**
+   * Puts a product in a known state without going through the upload round trip.
+   *
+   * The counter keeps `sku` and `slug` unique — both are unique indexes, and a test that
+   * wants two products would otherwise fail on the duplicate rather than on what it set
+   * out to check.
+   */
+  let productSeq = 0
+  async function productWithImages(count) {
+    productSeq += 1
+    const product = await staffProductService.create(
+      createProductSchema.parse({
+        ...VALID,
+        sku: `${VALID.sku}-${productSeq}`,
+        slug: `pistachio-cream-${productSeq}`,
+      }),
+      CONTEXT
+    )
+
+    product.images = Array.from({ length: count }, (_, index) => ({
+      url: `https://cdn.example/products/${product._id}/img${index}.webp`,
+      publicId: `products/${product._id}/img${index}.webp`,
+      alt: VALID.name,
+      order: index,
+    }))
+    await product.save()
+
+    return product
+  }
+
+  await t.test('a product cannot claim another product’s upload', async () => {
+    const [mine, theirs] = [await productWithImages(0), await productWithImages(0)]
+
+    await assert.rejects(
+      () =>
+        staffProductService.attachImage(
+          mine._id,
+          { key: `products/${theirs._id}/stolen.webp`, alt: '' },
+          CONTEXT
+        ),
+      // Rejected before any S3 call — detaching deletes the object, so attaching someone
+      // else's key would let one product delete another's photo.
+      (err) => err.statusCode === 400 && /does not belong/i.test(err.message)
+    )
+
+    assert.equal((await Product.findById(mine._id)).images.length, 0)
+  })
+
+  await t.test('the same image cannot be attached twice', async () => {
+    const product = await productWithImages(1)
+    const existing = product.images[0].publicId
+
+    await assert.rejects(
+      () => staffProductService.attachImage(product._id, { key: existing, alt: '' }, CONTEXT),
+      // Two rows pointing at one object shows the customer the same photo in two slots,
+      // and the first delete breaks the second.
+      (err) => err.statusCode === 409
+    )
+  })
+
+  await t.test('a product tops out at the image limit', async () => {
+    const product = await productWithImages(staffProductService.MAX_IMAGES_PER_PRODUCT)
+
+    // Refused at step 1, so an admin already at the limit is told before they pick a
+    // file rather than after waiting for it to upload.
+    await assert.rejects(
+      () =>
+        staffProductService.createImageUpload(product._id, {
+          filename: 'one-more.webp',
+          contentType: 'image/webp',
+          size: 1000,
+        }),
+      (err) => err.statusCode === 409 && /at most/i.test(err.message)
+    )
+
+    // And again at step 3, because step 1 is not a lock — two tabs could both pass it.
+    await assert.rejects(
+      () =>
+        staffProductService.attachImage(
+          product._id,
+          { key: `products/${product._id}/one-more.webp`, alt: '' },
+          CONTEXT
+        ),
+      (err) => err.statusCode === 409
+    )
+  })
+
+  await t.test('removing an image that is not there is a 404, not a silent success', async () => {
+    const product = await productWithImages(1)
+
+    await assert.rejects(
+      () => staffProductService.removeImage(product._id, 'products/x/never-existed.webp', CONTEXT),
+      (err) => err.statusCode === 404
+    )
+  })
+
+  await t.test('removing an image re-sequences the ones left', async () => {
+    const product = await productWithImages(3)
+    const removed = product.images[0].publicId
+
+    // NOTE: S3 is unconfigured in tests, so the object delete fails and logs an error.
+    // That is the behaviour under test — see below.
+    const updated = await staffProductService.removeImage(product._id, removed, CONTEXT)
+
+    assert.equal(updated.images.length, 2)
+    assert.equal(
+      updated.images.some((image) => image.publicId === removed),
+      false
+    )
+    // A hole in `order` is harmless right up until something treats the value as an
+    // index into the array, which is exactly the bug nobody looks for.
+    assert.deepEqual(
+      updated.images.map((image) => image.order),
+      [0, 1]
+    )
+  })
+
+  await t.test('a failed object delete still takes the photo off the site', async () => {
+    // S3 is unconfigured here, so `deleteObject` fails. The row must go anyway: the
+    // admin asked for the photo to come off, and a briefly unreachable bucket is not a
+    // reason to tell them it did not. The orphaned object is logged, not surfaced.
+    const product = await productWithImages(1)
+    const updated = await staffProductService.removeImage(
+      product._id,
+      product.images[0].publicId,
+      CONTEXT
+    )
+
+    assert.equal(updated.images.length, 0)
+    assert.equal((await Product.findById(product._id)).images.length, 0)
+  })
+
+  await t.test('adding and removing a photo is audited', async () => {
+    const product = await productWithImages(1)
+
+    await staffProductService.removeImage(product._id, product.images[0].publicId, CONTEXT)
+
+    const row = await AuditLog.findOne({ action: 'product.image.remove' })
+    assert.ok(row, 'a photo leaving the catalogue is worth a row')
+    // The SKU is what a human searching the trail has in hand; the entityId is what a
+    // query joins on. Same reasoning as every other audit row in this service.
+    assert.equal(row.changes.sku, product.sku)
+  })
 })
 
 /** Schema-level, so these run with or without a database. */
@@ -242,4 +396,5 @@ test('product validators', async (t) => {
     assert.equal(slugify("Chef's Special — Nutella & Co."), 'chef-s-special-nutella-co')
     assert.equal(slugify('  Double  Spaced  '), 'double-spaced')
   })
+
 })

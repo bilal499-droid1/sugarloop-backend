@@ -23,6 +23,7 @@ import mongoose from 'mongoose'
 import { S3Client, PutObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3'
 import { env } from '../config/env.js'
 import { Product } from '../models/Product.js'
+import { publicUrlFor } from '../services/imageStorage.service.js'
 import { readProductImageMap } from './productImageMap.js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
@@ -62,10 +63,9 @@ function keyFor(legacyId, file, index) {
   return `products/${legacyId}/${index + 1}-${base}${extension}`
 }
 
-function publicUrlFor(key) {
-  if (env.ASSET_BASE_URL) return `${env.ASSET_BASE_URL}/${key}`
-  return `https://${env.S3_BUCKET}.s3.${env.S3_REGION}.amazonaws.com/${key}`
-}
+// `publicUrlFor` is imported rather than repeated. Two copies of the rule that turns a
+// key into a URL would agree right up until one of them was changed, and the symptom
+// would be images that work everywhere except the ones this script wrote.
 
 async function main() {
   const entries = await readProductImageMap(PRODUCTS_DATA)

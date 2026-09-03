@@ -26,6 +26,7 @@ import { Product } from '../models/Product.js'
 import { ApiError } from '../utils/ApiError.js'
 import { formatPKR } from '../utils/money.js'
 import * as audit from './audit.service.js'
+import * as imageStorage from './imageStorage.service.js'
 
 /** User input reaches a regex here, so metacharacters have to stop being metacharacters. */
 function escapeRegex(value) {
@@ -214,6 +215,185 @@ export async function remove(id, context) {
     entity: 'Product',
     entityId: product._id,
     changes: { sku: product.sku, name: product.name, isActive: { from: true, to: false } },
+    ip: context.ip,
+  })
+
+  return product
+}
+
+/* ─── Product photos ──────────────────────────────────────────────────────────
+ *
+ * Uploading is a three-step round trip, and it is worth saying why it is not one.
+ *
+ *   1. POST .../images/upload-url   we sign a URL for one specific key
+ *   2. PUT <uploadUrl>              the browser sends the file straight to S3
+ *   3. POST .../images              the browser tells us the key; we verify and record
+ *
+ * Step 2 does not come through this API. `app.js` caps request bodies at 100kb, so a
+ * photo could not be POSTed here even if we wanted it to be, and lifting that cap would
+ * put every megabyte of every upload through EC2 memory on an instance sized for JSON.
+ *
+ * The cost of that design is step 3: the client tells us what it wrote, and a client can
+ * lie. So step 3 trusts nothing — it checks the key is one we could have issued for this
+ * product, and asks S3 what is actually there rather than believing the request.
+ */
+
+/**
+ * How many photos one product may carry.
+ *
+ * A limit exists because nothing else stops an admin console bug from looping: without
+ * it, a retry that re-attaches on every render grows an unbounded array inside a
+ * document every catalogue read loads. Eight is well past what any product tile shows.
+ */
+export const MAX_IMAGES_PER_PRODUCT = 8
+
+/**
+ * Step 1. Hands back a URL the browser may PUT one file to.
+ *
+ * Nothing is written here — not to S3, not to the product. An upload that is started and
+ * abandoned leaves no trace on the catalogue; at worst it leaves an unreferenced object
+ * in the bucket, which is what the lifecycle rule in `.env.example` is for.
+ *
+ * The image cap is checked here as well as on attach, so an admin who is already at the
+ * limit is told so before choosing a file rather than after waiting for it to upload.
+ */
+export async function createImageUpload(id, { filename, contentType, size }) {
+  const product = await findOrThrow(id)
+
+  if (product.images.length >= MAX_IMAGES_PER_PRODUCT) {
+    throw ApiError.conflict(
+      `A product can have at most ${MAX_IMAGES_PER_PRODUCT} images — remove one first`,
+      { sku: product.sku, count: product.images.length }
+    )
+  }
+
+  return imageStorage.createUploadUrl({
+    productId: String(product._id),
+    filename,
+    contentType,
+    size,
+  })
+}
+
+/**
+ * Step 3. Records an uploaded object against the product.
+ *
+ * Every check here exists because the caller supplied the key.
+ *
+ * The prefix check stops one product claiming another's object — without it an admin
+ * could attach a rival product's photo and then delete it out from under them, since
+ * detaching removes the underlying object.
+ *
+ * The `statObject` call is what makes the URL real. A client that never completed the
+ * PUT would otherwise write an image row pointing at a 404, and the first person to know
+ * would be a customer looking at a broken tile.
+ *
+ * The type and size re-checks close the gap between what was declared in step 1 and what
+ * was actually stored. S3 enforces both through the signature, so a mismatch means
+ * something unusual happened — the object is removed rather than left orphaned, because
+ * an object we have just refused to reference is one nothing will ever clean up.
+ */
+export async function attachImage(id, { key, alt }, context) {
+  const product = await findOrThrow(id)
+
+  if (product.images.length >= MAX_IMAGES_PER_PRODUCT) {
+    throw ApiError.conflict(
+      `A product can have at most ${MAX_IMAGES_PER_PRODUCT} images — remove one first`,
+      { sku: product.sku, count: product.images.length }
+    )
+  }
+
+  if (!imageStorage.keyBelongsTo(key, String(product._id))) {
+    throw ApiError.badRequest('That upload does not belong to this product', { field: 'key' })
+  }
+
+  // Attaching the same object twice would show the customer one photo in two slots and
+  // make the first delete break the second.
+  if (product.images.some((image) => image.publicId === key)) {
+    throw ApiError.conflict('That image is already on this product', { key })
+  }
+
+  const object = await imageStorage.statObject(key)
+
+  if (!object) {
+    throw ApiError.badRequest(
+      'No uploaded file was found for that key — the upload did not complete',
+      { field: 'key' }
+    )
+  }
+
+  if (!imageStorage.ALLOWED_IMAGE_TYPES[object.contentType]) {
+    await imageStorage.deleteObject(key)
+    throw ApiError.badRequest(`${object.contentType || 'That file'} is not an allowed image type`, {
+      field: 'key',
+    })
+  }
+
+  if (object.size > imageStorage.MAX_IMAGE_BYTES) {
+    await imageStorage.deleteObject(key)
+    throw ApiError.badRequest('That image is larger than the 5 MB limit', { field: 'key' })
+  }
+
+  product.images.push({
+    url: imageStorage.publicUrlFor(key),
+    publicId: key,
+    // The product name is a better alt text than a filename, and the only one available
+    // without a human writing one — same reasoning as the migration script.
+    alt: alt || product.name,
+    order: product.images.length,
+  })
+
+  await product.save()
+
+  await audit.record({
+    actor: context.actor,
+    action: 'product.image.add',
+    entity: 'Product',
+    entityId: product._id,
+    changes: { sku: product.sku, key, count: { from: product.images.length - 1, to: product.images.length } },
+    ip: context.ip,
+  })
+
+  return product
+}
+
+/**
+ * Removes a photo from the product and deletes the object behind it.
+ *
+ * Unlike a product, an image really is deleted. Nothing references it — an order line
+ * snapshots the name and price it was bought at, never the picture — so there is no
+ * history to protect and no reason to pay S3 to keep a file no page will load.
+ *
+ * The database write happens even if S3 refuses: `deleteObject` never throws, because
+ * the admin asked for the photo to come off the site and a briefly unreachable bucket is
+ * not a reason to tell them it did not. The orphan is logged.
+ */
+export async function removeImage(id, key, context) {
+  const product = await findOrThrow(id)
+
+  const index = product.images.findIndex((image) => image.publicId === key)
+
+  if (index === -1) {
+    throw ApiError.notFound('That image is not on this product')
+  }
+
+  product.images.splice(index, 1)
+
+  // Re-sequenced rather than left with a hole. `order` is what the storefront sorts on,
+  // and a gap is harmless until something starts treating the value as an index.
+  product.images.forEach((image, position) => {
+    image.order = position
+  })
+
+  await product.save()
+  await imageStorage.deleteObject(key)
+
+  await audit.record({
+    actor: context.actor,
+    action: 'product.image.remove',
+    entity: 'Product',
+    entityId: product._id,
+    changes: { sku: product.sku, key, count: { from: product.images.length + 1, to: product.images.length } },
     ip: context.ip,
   })
 

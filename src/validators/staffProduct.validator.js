@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PRODUCT_CATEGORIES } from '../config/constants.js'
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from '../services/imageStorage.service.js'
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id')
 
@@ -116,3 +117,54 @@ export const updateProductSchema = z
   .refine((body) => Object.keys(body).length > 0, {
     message: 'Nothing to change — send at least one field',
   })
+
+/**
+ * Asking for somewhere to put a photo.
+ *
+ * `size` is required and is not a formality. It is signed into the upload URL, so S3
+ * rejects a PUT whose body is a different length — which is what keeps a URL issued for
+ * a 200 KB photo from being spent on a 2 GB file. The frontend has the number for free
+ * from `File.size`; it must send that exact value and then upload that exact file.
+ *
+ * `contentType` is a closed list rather than a pattern, and SVG is not on it. See
+ * `imageStorage.service.js` — an SVG can carry script and would be served from the
+ * domain the storefront trusts.
+ */
+export const imageUploadUrlSchema = z.object({
+  filename: z.string().trim().min(1, 'A filename is required').max(200),
+  contentType: z.enum(Object.keys(ALLOWED_IMAGE_TYPES), {
+    errorMap: () => ({
+      message: `Images must be one of: ${Object.keys(ALLOWED_IMAGE_TYPES).join(', ')}`,
+    }),
+  }),
+  size: z
+    .number({ invalid_type_error: 'Send the file size in bytes' })
+    .int()
+    .positive('An empty file is not an image')
+    .max(MAX_IMAGE_BYTES, `Images must be ${MAX_IMAGE_BYTES / 1024 / 1024} MB or smaller`),
+})
+
+/**
+ * Confirming the upload landed.
+ *
+ * `key` comes back from the upload-url call and is checked against this product's prefix
+ * in the service — it is client input, and the only thing standing between it and
+ * another product's photos.
+ *
+ * `alt` is optional and defaults to the product name in the service. Requiring it here
+ * would mean an admin adding a photo has to write accessibility copy before the upload
+ * is allowed to finish, and the answer they would type is the product name anyway.
+ */
+export const attachImageSchema = z.object({
+  key: z.string().trim().min(1, 'Which upload? Send the key from the upload-url response').max(500),
+  alt: z.string().trim().max(200).optional().default(''),
+})
+
+/**
+ * Removing one. The key travels in the body rather than the path because an S3 key
+ * contains slashes, and a path parameter carrying `products/<id>/ab12-front.webp` has to
+ * be double-encoded by every client and correctly decoded by every proxy to survive.
+ */
+export const removeImageSchema = z.object({
+  key: z.string().trim().min(1, 'Which image? Send its publicId').max(500),
+})
