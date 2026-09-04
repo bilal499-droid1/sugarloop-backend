@@ -1,0 +1,23 @@
+# The image installs its own with `npm ci` — copying a Windows-built tree in would both
+# bloat the context and shadow it.
+node_modules
+
+.git
+.gitignore
+
+# Secrets. Configuration reaches the container as environment variables, never baked in.
+.env
+.env.*
+!.env.example
+
+# Client planning material: pricing, timelines, account ownership. Never in an image.
+docs
+
+postman
+coverage
+tmp
+*.log
+**/*.test.js
+Dockerfile
+.dockerignore
+README.md

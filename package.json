@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "build:web": "node src/scripts/buildWeb.js",
     "seed": "node src/scripts/seed.js",
     "email:test": "node src/scripts/emailTest.js",
     "lint": "eslint src",

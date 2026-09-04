@@ -9,9 +9,9 @@ Cash-on-Delivery order**; a branch can then **work that order through to complet
 toggle its own stock, and work the corporate gifting inbox. Order notifications fire on
 every event that should send one.
 
-⚠️ **This project is not deployed and is not being deployed for now.** There is
-deliberately no CI, no Dockerfile and no hosting config in this repo — that is a decision,
-not an omission, so please don't add any. `npm run check` is the gate.
+**Deployment is now in progress.** The API and the built shop ship as one container on
+one EC2 instance, same origin — see [Deployment](#deployment). There is still no CI;
+`npm run check` is the gate, run by hand before every commit.
 
 One thing stands between this and real customers, and it is not code we can finish alone:
 
@@ -544,11 +544,74 @@ the expensive migration this design exists to avoid.
 
 ---
 
+## Deployment
+
+The API and the shop are **one container on one origin**: Express serves the built
+frontend, and the API sits under `/api/v1` of the same host. That removes the second host
+and, with it, the CORS problem — `CORS_ORIGINS` must still be set, because
+`config/env.js` refuses to boot on an empty one outside development, but no customer
+request is cross-origin any more.
+
+### Build the frontend into this repo
+
+The two halves live in separate repositories, so the build has to be carried across:
+
+```bash
+npm run build:web                                    # expects ../roots-international
+FRONTEND_DIR=/path/to/roots-international npm run build:web
+```
+
+It runs Vite with `VITE_API_BASE_URL=/api/v1` — inlined at build time, so changing it
+needs a rebuild rather than a restart — then **wipes `public/` and copies the whole
+`dist/` in**.
+
+Not three files. A build is one HTML document and around a hundred assets, nearly all of
+them product photographs; copying `index.html`, the JS and the CSS by hand ships a shop
+with no pictures. And because Vite fingerprints every filename, merging instead of wiping
+leaves every previous build's assets in place forever.
+
+`public/` is gitignored: it is a deploy artefact, and this repository is public.
+
+### Container
+
+```bash
+npm run check                       # the gate — there is no CI
+npm run build:web
+docker build -t sugarloop-api .
+docker run -d --name sugarloop --env-file .env.production \
+  -p 127.0.0.1:4000:4000 --stop-timeout 20 --restart unless-stopped sugarloop-api
+```
+
+`--stop-timeout 20` is not optional. Shutdown gives itself 15 seconds to drain in-flight
+requests and Docker's default kill is 10, which lands mid-write on an order that was
+taken and never stored.
+
+Bound to `127.0.0.1`, never `0.0.0.0`: a reverse proxy terminates TLS in front, and the
+container should not be reachable around it.
+
+### The reverse proxy is load-bearing
+
+`app.js` sets `trust proxy` to **1** — exactly one hop, which is correct behind a single
+Caddy, nginx or ALB. **Expose Node directly and that number must be 0**, or any caller
+can send their own `X-Forwarded-For` and draw a fresh rate-limit budget on every request
+— including against the OTP limiter, which is what stands between a script and the
+client's messaging bill.
+
+### Boot guards to expect
+
+`NODE_ENV=production` refuses to start while any transport is still `log`: OTP,
+notifications and email each have their own check, and all three are `production`-only.
+`NODE_ENV=staging` clears them while still enforcing the real JWT and CORS rules, which
+is how the box goes up before the Meta templates land.
+
+---
+
 ## Roadmap
+
 
 | Step | State |
 |---|---|
-| 1 Skeleton | ✅ local — deployment is deliberately out of scope |
+| 1 Skeleton | ✅ |
 | 2 Models + seed | ✅ |
 | 3 Catalogue endpoints | ✅ |
 | 4 Hours engine | ✅ |
@@ -566,7 +629,7 @@ the expensive migration this design exists to avoid.
 | PDF invoices | ✅ staff and customer, same gates as the order they print |
 | Daily report | ✅ JSON + PDF, branch-scoped, takings from completed orders |
 | Running sales total | ✅ `/staff/reports/summary` — all-time or a date range |
-| 10 Staging deploy | ⛔ out of scope, by decision |
+| 10 Staging deploy | 🔧 in progress — EC2 + Docker, frontend served from the same origin |
 | **WhatsApp / SMS send** | ❌ **next** — one function each, blocked on the Meta account |
 
 **Geocoding runs on OpenStreetMap until a Maps key exists.** That is a real quality gap,

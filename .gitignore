@@ -21,3 +21,12 @@ Thumbs.db
 # local. They remain on disk and are still the reference for what was agreed; they are
 # simply not published. Remove this rule if the repository is ever made private.
 docs/
+
+# The built frontend, copied here by `npm run build:web`. A deploy artefact, not
+# source: it is rebuilt from the roots-international repo, and this repository is PUBLIC.
+public/
+
+# SSH / EC2 private keys. This repository is PUBLIC — a key committed here is a
+# compromised server, and rotating it means replacing the key pair on the instance.
+*.pem
+*.key
