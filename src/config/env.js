@@ -47,8 +47,60 @@ const schema = z.object({
   NOTIFY_TRANSPORT: z.enum(['log', 'whatsapp']).default('log'),
 
   /**
+   * Credentials for the WhatsApp Cloud API, shared by both transports above. See
+   * services/whatsapp.client.js.
+   *
+   * Optional in the schema and required by the boot check at the bottom of this file,
+   * which only applies when a transport is actually set to `whatsapp` — a laptop running
+   * everything on `log` needs none of these, and demanding them would make the default
+   * development setup impossible.
+   */
+  WHATSAPP_TOKEN: z.string().optional(),
+
+  /**
+   * The numeric id from WhatsApp Manager, NOT the phone number itself. Meta shows both
+   * on the same screen and the number is the one that looks like an identifier, so this
+   * is the field people fill in wrong; a number here fails every send with a 404 on a
+   * URL that looks perfectly reasonable in the logs.
+   */
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+
+  /**
+   * The locale every template was approved under. Must match exactly: a template
+   * approved as `en_US` and requested as `en` does not exist as far as Meta's API is
+   * concerned, and the error says so only if you read the code (132001).
+   */
+  WHATSAPP_TEMPLATE_LANG: z.string().default('en'),
+
+  /**
+   * Whether `sugarloop_otp` was created with a copy-code button — Meta's default when
+   * you build an Authentication template, and what the customer taps rather than
+   * retyping six digits.
+   *
+   * Configuration rather than a constant because it is not our decision: whoever
+   * submitted the template made it, and the payload has to agree with what they built.
+   * Declare the button and omit it from the send and Meta rejects the message; send one
+   * the template does not declare and it rejects that too. Defaults to true because that
+   * is what Meta's own builder produces unless you turn it off.
+   */
+  WHATSAPP_OTP_HAS_COPY_BUTTON: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /**
+   * Pinned rather than floating. Meta ships breaking changes behind version numbers and
+   * retires old ones on a schedule, so an upgrade should be a commit somebody chose to
+   * make, not a morning where sends start failing on their own.
+   */
+  WHATSAPP_API_VERSION: z.string().default('v21.0'),
+
+  /**
    * Where the WhatsApp copy of a corporate enquiry goes. Falls back to nothing rather
    * than to a wrong number: `notify()` skips a message with no recipient and logs it.
+   *
+   * A recipient, so NOT the business number the API sends from — a number registered on
+   * the Cloud API cannot receive its own messages.
    */
   ENQUIRY_NOTIFY_PHONE: z.string().default(''),
 
@@ -203,6 +255,32 @@ if (env.EMAIL_TRANSPORT === 'smtp') {
   if (missing.length > 0) {
     console.error(
       `\nRefusing to start: EMAIL_TRANSPORT=smtp but ${missing.join(', ')} ${
+        missing.length === 1 ? 'is' : 'are'
+      } not set.\n`
+    )
+    process.exit(1)
+  }
+}
+
+// Same reasoning for WhatsApp, and the stakes are higher than the mailer's: OTP delivery
+// is the front door. A missing token there is not a degraded feature, it is every
+// customer unable to log in or place an order, discovered at the first attempt.
+//
+// Checked against whichever transports are switched on, because they are switched on
+// independently — the OTP template clears review before the order templates do, so
+// running OTP on WhatsApp while notifications are still on `log` is a real intermediate
+// state, not a misconfiguration.
+const whatsappTransports = [
+  ['OTP_TRANSPORT', env.OTP_TRANSPORT],
+  ['NOTIFY_TRANSPORT', env.NOTIFY_TRANSPORT],
+].filter(([, value]) => value === 'whatsapp')
+
+if (whatsappTransports.length > 0) {
+  const missing = ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID'].filter((key) => !env[key])
+  if (missing.length > 0) {
+    const names = whatsappTransports.map(([key]) => `${key}=whatsapp`).join(' and ')
+    console.error(
+      `\nRefusing to start: ${names} but ${missing.join(', ')} ${
         missing.length === 1 ? 'is' : 'are'
       } not set.\n`
     )

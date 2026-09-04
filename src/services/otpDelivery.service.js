@@ -1,15 +1,15 @@
 /**
  * Getting the code to the customer's phone.
  *
- * ⚠️ **No delivery provider is configured yet.** WhatsApp Cloud API needs a Meta Business
- * account, a verified number and per-template approval (1–3 days each, ×7 templates);
- * Twilio needs an account. Neither exists, and neither is something this repo can create.
+ * Delivery is a swappable transport. Two of the three work: `log`, which writes the code
+ * to the server console and is the development default, and `whatsapp`, which sends the
+ * Authentication-category `sugarloop_otp` template through the Cloud API. `sms` is still
+ * a stub — it is the fallback for a customer without WhatsApp, and needs a Twilio account
+ * that does not exist.
  *
- * So delivery is a swappable transport with one working implementation — `log`, which
- * writes the code to the server console — and named stubs for the two real providers.
- * The point is that the OTP *rules* (expiry, attempts, rate limits, hashing) are real and
- * finished now, and switching on WhatsApp later is filling in one function rather than
- * rewriting the flow.
+ * The OTP *rules* — expiry, attempt limits, rate limits, hashing — live in
+ * `customerAuth.service.js` and are independent of all three. That separation is why
+ * switching WhatsApp on was filling in one function rather than reworking the flow.
  *
  * Chosen by `OTP_TRANSPORT`. Defaults to `log`, and `assertTransportIsProductionSafe()`
  * refuses to let that default reach production, where it would mean every customer's code
@@ -18,6 +18,16 @@
 import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
 import { ApiError } from '../utils/ApiError.js'
+import { sendTemplate } from './whatsapp.client.js'
+
+/**
+ * The literal template name registered with Meta. Not in notification.service.js's
+ * `TEMPLATES` map on purpose: everything there is Utility category and interchangeable
+ * through `notify()`, while this one is Authentication, has a different payload shape,
+ * and is reached by a different path. Listing it beside them would invite somebody to
+ * send an order update through it, which Meta rejects.
+ */
+const OTP_TEMPLATE = 'sugarloop_otp'
 
 /**
  * Development transport: print it and move on.
@@ -37,18 +47,45 @@ async function sendViaLog({ phone, code }) {
 }
 
 /**
- * WhatsApp Cloud API. Not implemented — blocked on the client's Meta Business account.
+ * WhatsApp Cloud API, sending the Authentication-category `sugarloop_otp` template.
  *
- * When it lands: POST to
- * `https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages` with an
- * `authentication`-category template (`sugarloop_otp`), the code as the body parameter.
- * Auth templates are the only category Meta permits for one-time passcodes, and they
- * must be approved before a single message will send.
+ * Authentication is the only category Meta permits to carry a one-time passcode, and it
+ * comes with a fixed message shape rather than free copy: the code goes in the body, and
+ * again in a button component when the template was built with the copy-code button
+ * (which is Meta's default, and what the customer taps to fill the field). A template
+ * that declares that button and a payload that omits it is rejected, so the two are
+ * configured together — see WHATSAPP_OTP_HAS_COPY_BUTTON.
+ *
+ * Failures are raised, not swallowed. Unlike an order notification, a code that never
+ * arrives is not a degraded experience: it is a customer who cannot get in, and they need
+ * to be told to try again rather than left watching a screen.
  */
-async function sendViaWhatsApp() {
-  throw ApiError.internal(
-    'WhatsApp OTP delivery is not implemented yet — set OTP_TRANSPORT=log for development'
-  )
+async function sendViaWhatsApp({ phone, code }) {
+  const components = [{ type: 'body', parameters: [{ type: 'text', text: code }] }]
+
+  if (env.WHATSAPP_OTP_HAS_COPY_BUTTON) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: code }],
+    })
+  }
+
+  try {
+    const { messageId } = await sendTemplate({
+      to: phone,
+      template: OTP_TEMPLATE,
+      components,
+    })
+    return { channel: 'whatsapp', messageId }
+  } catch (err) {
+    // The underlying error carries Meta's own text and is already logged by the client.
+    // What the customer gets back is deliberately vaguer: "which template is unapproved"
+    // is operator information, and an error body is not where it belongs.
+    logger.error({ err, template: OTP_TEMPLATE }, 'OTP delivery failed')
+    throw ApiError.internal('Could not send your verification code — please try again')
+  }
 }
 
 /** Twilio SMS, the fallback for customers without WhatsApp. Also not implemented. */

@@ -8,7 +8,8 @@
  *
  *   log        renders the whole message to the server console and sends nothing. The
  *              development default, and refused at boot in production.
- *   whatsapp   the Meta Cloud API. Not implemented — see `sendViaWhatsApp` below.
+ *   whatsapp   the Meta Cloud API, via `whatsapp.client.js`. Every template here is
+ *              Utility category and must be approved before it will send.
  *
  * **Nothing in this module is allowed to throw.** Every caller is a write that has
  * already succeeded: the order is placed, the status has moved, the lead is stored. A
@@ -25,6 +26,7 @@ import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
 import { FULFILMENT, ORDER_STATUS } from '../config/constants.js'
 import { formatPKR } from '../utils/money.js'
+import { sendTemplate } from './whatsapp.client.js'
 
 /**
  * The templates Meta has to approve, and the parameters each one takes.
@@ -98,22 +100,24 @@ async function sendViaLog({ to, template, params }) {
 }
 
 /**
- * WhatsApp Cloud API. Not implemented — blocked on the client's Meta Business account.
+ * WhatsApp Cloud API — the same call the OTP path makes, through the same client.
  *
- * When it lands it is the same call `otpDelivery.sendViaWhatsApp` makes: POST to
- * `https://graph.facebook.com/v{version}/{WHATSAPP_PHONE_NUMBER_ID}/messages` with a
- * `template` message, `params` as the body component's positional parameters, in order.
+ * The difference is the category, and it is not cosmetic. Everything here is Utility,
+ * which Meta permits for a transactional update about something the customer has already
+ * done; `sugarloop_otp` is Authentication, the only category allowed to carry a one-time
+ * passcode. A Utility template carrying a code is rejected, and an Authentication
+ * template carrying an order update is too — which is why the two paths name their
+ * templates separately rather than sharing a list.
  *
- * The difference from the OTP path is the category. These six are Utility templates,
- * which Meta permits for transactional updates about something the customer has already
- * done; `sugarloop_otp` is Authentication, which is the only category allowed to carry a
- * one-time passcode. A Utility template carrying a code is rejected, and an
- * Authentication template carrying an order update is too.
+ * Shape-wise these are the simple case: a body with positional parameters and no buttons,
+ * so `params` goes straight through and the client builds the component.
+ *
+ * Throwing here is safe and expected — `notify()` catches it. That is the whole reason
+ * this function is allowed to be this short.
  */
-async function sendViaWhatsApp() {
-  throw new Error(
-    'WhatsApp notifications are not implemented yet — set NOTIFY_TRANSPORT=log for development'
-  )
+async function sendViaWhatsApp({ to, template, params }) {
+  const { messageId } = await sendTemplate({ to, template, params })
+  return { transport: 'whatsapp', messageId }
 }
 
 const TRANSPORTS = {
