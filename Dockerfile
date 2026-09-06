@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1
 #
-# The Sugarloop API.
+# The Sugarloop API and storefront.
 #
-# The API only. The storefront is deployed separately on Vercel and talks to this over
-# CORS; see README > Deployment for the origin and cookie settings that pairing needs.
+# One container, one origin: Express serves the built shop and the API sits under
+# /api/v1 of the same host. That removes the second host and, with it, the CORS problem —
+# see README > Deployment. CORS_ORIGINS must still be set, because config/env.js refuses
+# to boot on an empty one outside development, but no customer request is cross-origin.
 FROM node:20-alpine
 
 ENV NODE_ENV=production
@@ -17,10 +19,14 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 
-# The storefront is served by Vercel, so this image is the API alone. If the two are ever
-# consolidated onto this box, run 'npm run build:web' and uncomment the next line —
-# app.js already serves public/ when it exists and stays API-only when it does not.
-# COPY public ./public
+# The built storefront. `npm run build:web` must have been run first — it wipes public/
+# and copies a fresh Vite build in from ../roots-international. Stale or missing, and this
+# ships yesterday's shop or none at all: app.js serves public/ when it exists and falls
+# back to API-only when it does not, so a forgotten build fails quietly, not loudly.
+#
+# public/ is gitignored, so it does not arrive with a `git pull` on the server — copy it
+# up (scp) or build the image where the frontend repo is.
+COPY public ./public
 
 # node:alpine ships an unprivileged `node` user. Running as root inside a container that
 # faces the internet buys nothing and makes a bug in the app root on this filesystem.

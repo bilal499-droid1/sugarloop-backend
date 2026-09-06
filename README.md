@@ -622,15 +622,17 @@ is how the box goes up before the Meta templates land.
 | Customer phone OTP | ✅ pulled forward from sprint 2 — `POST /orders` is gated on it |
 | 9 Geocoding + branch assignment | ✅ `POST /branches/resolve`, cached, provider-swappable |
 | Corporate enquiries + FAQ questions | ✅ public forms, admin inbox, per-kind queues |
-| Order notifications | ✅ wired to every event — **the send itself is the stub** |
+| Order notifications | ✅ wired to every event, send implemented — running on `log` until Meta credentials land |
 | Admin product CRUD | ✅ `/staff/products`, audited, discontinue-not-delete |
 | Redis rate limits | ✅ falls back to in-memory without `REDIS_URL` |
 | Unacknowledged-order escalation | ✅ 5 min → branch, 10 min → admin, plus the board's alarm |
 | PDF invoices | ✅ staff and customer, same gates as the order they print |
 | Daily report | ✅ JSON + PDF, branch-scoped, takings from completed orders |
 | Running sales total | ✅ `/staff/reports/summary` — all-time or a date range |
-| 10 Staging deploy | 🔧 in progress — EC2 + Docker, frontend served from the same origin |
-| **WhatsApp / SMS send** | ❌ **next** — one function each, blocked on the Meta account |
+| 10 Staging deploy | ✅ live at `api.sugarloop.pk` — EC2 + Docker + nginx, Atlas, shop on the same origin |
+| WhatsApp send | ✅ built — `whatsapp.client.js`, wired to OTP and notifications; **not switched on** |
+| **WhatsApp go-live** | ❌ **next** — credentials + approved templates, blocked on the Meta account |
+| SMS fallback | ❌ not implemented — `otpDelivery.service.js` throws on `OTP_TRANSPORT=sms` |
 
 **Geocoding runs on OpenStreetMap until a Maps key exists.** That is a real quality gap,
 not just a config placeholder: Nominatim resolves areas well (`DHA Phase 2 Islamabad`) but
@@ -639,12 +641,26 @@ their address cannot be found and pushed to the location button instead. Switchi
 Google is two lines in `.env` — see `GEOCODER` there. Lookups are cached for 90 days, so
 Google's 10,000 free/month is far more than this shop will use.
 
-Sprint 2 and beyond: the WhatsApp Cloud API send itself, SMS fallback, the inbound webhook
-and auto-reply, Cloudinary uploads.
+Sprint 2 and beyond: SMS fallback, the inbound webhook and auto-reply, Cloudinary uploads.
 
-**Order notifications are wired and firing** — every event, every recipient, every
-template, on the `log` transport. What is missing is one function: the HTTP call to Meta in
-`notification.service.js`, which cannot be written against an account that does not exist.
+**Order notifications are wired, firing, and the send is written** — every event, every
+recipient, every template. `notification.service.js` calls `sendTemplate()` in
+`whatsapp.client.js`, exactly as `otpDelivery.service.js` does for the OTP.
+
+What is missing is not code but an account. Both transports default to `log`, which
+renders the message and delivers nothing. Switching them on is configuration:
+
+```bash
+OTP_TRANSPORT=whatsapp
+NOTIFY_TRANSPORT=whatsapp
+WHATSAPP_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
+```
+
+Until then every template still has to be created and approved in the Meta console — the
+OTP one under the authentication category, which is the only category Meta permits to
+carry a passcode. `NODE_ENV=production` refuses to boot while any transport is still
+`log`, so the flip to production and the arrival of these credentials are the same event.
 See [Notifications](#notifications).
 
 **Corporate enquiries are in, end to end.** `POST /enquiries` stores the lead and emails
