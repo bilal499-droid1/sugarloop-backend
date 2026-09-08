@@ -578,7 +578,7 @@ leaves every previous build's assets in place forever.
 npm run check                       # the gate — there is no CI
 npm run build:web
 docker build -t sugarloop-api .
-docker run -d --name sugarloop --env-file .env.production \
+docker run -d --name sugarloop-api --env-file .env.production \
   -p 127.0.0.1:4000:4000 --stop-timeout 20 --restart unless-stopped sugarloop-api
 ```
 
@@ -588,6 +588,37 @@ taken and never stored.
 
 Bound to `127.0.0.1`, never `0.0.0.0`: a reverse proxy terminates TLS in front, and the
 container should not be reachable around it.
+
+The container is named **`sugarloop-api`**, the same as the image. Every operational
+command needs that name and fails with `No such container` on anything shorter:
+
+```bash
+docker logs -f --tail 200 sugarloop-api
+docker exec sugarloop-api printenv NODE_ENV
+docker restart sugarloop-api          # picks up an .env.production edit; no rebuild
+```
+
+`docker restart` is enough for a configuration change, because the environment is read at
+boot. A code change needs the full build above.
+
+### Getting onto the staging box
+
+```bash
+ssh -i sugarloopdeploymentkey006007.pem ec2-user@<elastic-ip>
+```
+
+**`ec2-user`, not `ubuntu`.** The instance runs Amazon Linux 2023, where `ec2-user` is the
+default login; `ubuntu` belongs to the Ubuntu AMIs. Getting it wrong fails as
+`Permission denied (publickey)`, which reads like a rejected key rather than a wrong
+username and sends you looking in the wrong place.
+
+The key is gitignored (`*.pem`), so it never arrives with a clone and has to be carried
+across separately.
+
+Port 22 is open to a single source IP in the security group. So SSH **timing out** rather
+than being refused means that address has changed — a home broadband IP rotating, most
+often — and not that the box is down. Confirm it still answers on 443 before assuming the
+worst, then update the security group rule to the current IP.
 
 ### The reverse proxy is load-bearing
 
