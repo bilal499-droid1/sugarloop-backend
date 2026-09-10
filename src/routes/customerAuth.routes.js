@@ -11,10 +11,11 @@ const router = Router()
 /**
  * Sends a verification code.
  *
- * The most expensive endpoint in the system to abuse: every call bills a WhatsApp or SMS
- * message. `otpLimiter` is the per-IP layer (10/hour); the per-phone cap (3/hour) and the
- * resend cooldown live in the service, because an attacker rotating IPs would sail past
- * an IP limit alone while still ringing one victim's phone.
+ * Email costs nothing per message, so this is no longer the endpoint that bills the
+ * client — but it is still the one that mails a stranger on demand from the shop's own
+ * address. `otpLimiter` is the per-IP layer (10/hour); the per-recipient cap (3/hour)
+ * and the resend cooldown live in the service, because an attacker rotating IPs would
+ * sail past an IP limit alone while still filling one victim's inbox.
  */
 router.post(
   '/otp/request',
@@ -37,7 +38,7 @@ router.post(
   asyncHandler(customerAuthController.verifyOtp)
 )
 
-/** Whether this browser still holds a valid session, and for which number. */
+/** Whether this browser still holds a valid session, and for which address. */
 router.get('/me', requireCustomer, asyncHandler(customerAuthController.me))
 
 router.post('/logout', asyncHandler(customerAuthController.logout))

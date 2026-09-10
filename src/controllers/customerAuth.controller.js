@@ -30,7 +30,7 @@ function sessionCookieOptions() {
 
 export async function requestOtp(req, res) {
   const result = await customerAuthService.requestOtp({
-    phone: req.body.phone,
+    email: req.body.email,
     ip: req.ip ?? '',
   })
 
@@ -38,7 +38,7 @@ export async function requestOtp(req, res) {
 }
 
 export async function verifyOtp(req, res) {
-  const { phone, token, expiresIn } = await customerAuthService.verifyOtp(req.body)
+  const { email, token, expiresIn } = await customerAuthService.verifyOtp(req.body)
 
   res.cookie(CUSTOMER_COOKIE, token, sessionCookieOptions())
 
@@ -49,11 +49,11 @@ export async function verifyOtp(req, res) {
    * have no cookie jar worth managing and send it as a bearer token instead. Both are
    * accepted by `requireCustomer`.
    */
-  return ok(res, { phone, token, expiresIn })
+  return ok(res, { email, token, expiresIn })
 }
 
 export async function me(req, res) {
-  return ok(res, { phone: req.customer.phone })
+  return ok(res, { email: req.customer.email })
 }
 
 export async function logout(_req, res) {

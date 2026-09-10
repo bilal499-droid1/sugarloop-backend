@@ -1,9 +1,9 @@
 /**
  * The OTP rules.
  *
- * These tests are the reason the flow can be trusted before a single WhatsApp message has
- * ever been sent: they exercise expiry, attempt limits, replay, cooldown and the hourly
- * cap directly, with time injected rather than waited for.
+ * These tests are the reason the flow can be trusted before a single message has
+ * ever been sent for real: they exercise expiry, attempt limits, replay, cooldown and the
+ * hourly cap directly, with time injected rather than waited for.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -20,11 +20,11 @@ const { OtpChallenge } = await import('../models/OtpChallenge.js')
 const { OTP } = await import('../config/constants.js')
 const service = await import('./customerAuth.service.js')
 
-const PHONE = '+923001234567'
+const EMAIL = 'customer@example.com'
 
 /** The code never leaves the service except through the dev echo, which is what we read. */
-async function issueCode(phone = PHONE, now = new Date()) {
-  const result = await service.requestOtp({ phone }, { now })
+async function issueCode(email = EMAIL, now = new Date()) {
+  const result = await service.requestOtp({ email }, { now })
   assert.ok(result.devCode, 'dev transport should echo the code so tests can use it')
   return result.devCode
 }
@@ -39,18 +39,18 @@ test.after(async () => {
 
 test('a fresh code verifies and returns a session', { skip }, async () => {
   const code = await issueCode()
-  const session = await service.verifyOtp({ phone: PHONE, code })
+  const session = await service.verifyOtp({ email: EMAIL, code })
 
-  assert.equal(session.phone, PHONE)
+  assert.equal(session.email, EMAIL)
   assert.ok(session.token)
 
   const payload = service.verifyCustomerToken(session.token)
-  assert.equal(payload.phone, PHONE)
+  assert.equal(payload.email, EMAIL)
 })
 
 test('the plain code is never stored', { skip }, async () => {
   const code = await issueCode()
-  const stored = await OtpChallenge.findOne({ phone: PHONE })
+  const stored = await OtpChallenge.findOne({ email: EMAIL })
 
   assert.notEqual(stored.codeHash, code)
   assert.ok(stored.codeHash.startsWith('$2'), 'should be a bcrypt hash')
@@ -58,22 +58,22 @@ test('the plain code is never stored', { skip }, async () => {
 
 test('a code cannot be used twice', { skip }, async () => {
   const code = await issueCode()
-  await service.verifyOtp({ phone: PHONE, code })
+  await service.verifyOtp({ email: EMAIL, code })
 
   await assert.rejects(
-    () => service.verifyOtp({ phone: PHONE, code }),
+    () => service.verifyOtp({ email: EMAIL, code }),
     (error) => error.code === 'OTP_INVALID'
   )
 })
 
 test('an expired code is refused', { skip }, async () => {
   const now = new Date()
-  const code = await issueCode(PHONE, now)
+  const code = await issueCode(EMAIL, now)
 
   const afterExpiry = new Date(now.getTime() + (OTP.TTL_MINUTES + 1) * 60 * 1000)
 
   await assert.rejects(
-    () => service.verifyOtp({ phone: PHONE, code }, { now: afterExpiry }),
+    () => service.verifyOtp({ email: EMAIL, code }, { now: afterExpiry }),
     (error) => error.code === 'OTP_INVALID'
   )
 })
@@ -82,11 +82,11 @@ test('a wrong code is refused and burns an attempt', { skip }, async () => {
   await issueCode()
 
   await assert.rejects(
-    () => service.verifyOtp({ phone: PHONE, code: '000000' }),
+    () => service.verifyOtp({ email: EMAIL, code: '000000' }),
     (error) => error.code === 'OTP_INVALID'
   )
 
-  const stored = await OtpChallenge.findOne({ phone: PHONE })
+  const stored = await OtpChallenge.findOne({ email: EMAIL })
   assert.equal(stored.attempts, 1)
 })
 
@@ -100,11 +100,11 @@ test('the challenge dies after the attempt limit, and the right code no longer w
   const wrong = code === '000000' ? '111111' : '000000'
 
   for (let i = 0; i < OTP.MAX_ATTEMPTS; i += 1) {
-    await assert.rejects(() => service.verifyOtp({ phone: PHONE, code: wrong }))
+    await assert.rejects(() => service.verifyOtp({ email: EMAIL, code: wrong }))
   }
 
   await assert.rejects(
-    () => service.verifyOtp({ phone: PHONE, code }),
+    () => service.verifyOtp({ email: EMAIL, code }),
     (error) => error.code === 'OTP_ATTEMPTS_EXHAUSTED',
     'a burned challenge must not accept even the correct code'
   )
@@ -112,54 +112,54 @@ test('the challenge dies after the attempt limit, and the right code no longer w
 
 test('resending immediately is refused by the cooldown', { skip }, async () => {
   const now = new Date()
-  await service.requestOtp({ phone: PHONE }, { now })
+  await service.requestOtp({ email: EMAIL }, { now })
 
   await assert.rejects(
-    () => service.requestOtp({ phone: PHONE }, { now: new Date(now.getTime() + 5_000) }),
+    () => service.requestOtp({ email: EMAIL }, { now: new Date(now.getTime() + 5_000) }),
     (error) => error.code === 'OTP_COOLDOWN' && error.details.retryAfterSeconds > 0
   )
 })
 
-test('the hourly per-phone cap is enforced', { skip }, async () => {
+test('the hourly per-recipient cap is enforced', { skip }, async () => {
   const start = new Date()
 
   // Spaced past the cooldown so it is the hourly cap being tested, not the cooldown.
-  for (let i = 0; i < OTP.MAX_PER_PHONE_PER_HOUR; i += 1) {
+  for (let i = 0; i < OTP.MAX_PER_RECIPIENT_PER_HOUR; i += 1) {
     const at = new Date(start.getTime() + i * (OTP.RESEND_COOLDOWN_SECONDS + 5) * 1000)
-    await service.requestOtp({ phone: PHONE }, { now: at })
+    await service.requestOtp({ email: EMAIL }, { now: at })
   }
 
   const next = new Date(
-    start.getTime() + OTP.MAX_PER_PHONE_PER_HOUR * (OTP.RESEND_COOLDOWN_SECONDS + 5) * 1000
+    start.getTime() + OTP.MAX_PER_RECIPIENT_PER_HOUR * (OTP.RESEND_COOLDOWN_SECONDS + 5) * 1000
   )
 
   await assert.rejects(
-    () => service.requestOtp({ phone: PHONE }, { now: next }),
+    () => service.requestOtp({ email: EMAIL }, { now: next }),
     (error) => error.code === 'OTP_RATE_LIMITED'
   )
 })
 
-test('the cap is per phone, so one number cannot lock out another', { skip }, async () => {
+test('the cap is per address, so one recipient cannot lock out another', { skip }, async () => {
   const start = new Date()
-  const other = '+923009999999'
+  const other = 'someone.else@example.com'
 
-  for (let i = 0; i < OTP.MAX_PER_PHONE_PER_HOUR; i += 1) {
+  for (let i = 0; i < OTP.MAX_PER_RECIPIENT_PER_HOUR; i += 1) {
     const at = new Date(start.getTime() + i * (OTP.RESEND_COOLDOWN_SECONDS + 5) * 1000)
-    await service.requestOtp({ phone: PHONE }, { now: at })
+    await service.requestOtp({ email: EMAIL }, { now: at })
   }
 
-  await assert.doesNotReject(() => service.requestOtp({ phone: other }, { now: start }))
+  await assert.doesNotReject(() => service.requestOtp({ email: other }, { now: start }))
 })
 
 test('requesting a second code does not invalidate it — the newest wins', { skip }, async () => {
   const start = new Date()
-  await service.requestOtp({ phone: PHONE }, { now: start })
+  await service.requestOtp({ email: EMAIL }, { now: start })
 
   const later = new Date(start.getTime() + (OTP.RESEND_COOLDOWN_SECONDS + 5) * 1000)
-  const second = await service.requestOtp({ phone: PHONE }, { now: later })
+  const second = await service.requestOtp({ email: EMAIL }, { now: later })
 
   await assert.doesNotReject(() =>
-    service.verifyOtp({ phone: PHONE, code: second.devCode }, { now: later })
+    service.verifyOtp({ email: EMAIL, code: second.devCode }, { now: later })
   )
 })
 
@@ -167,8 +167,8 @@ test('a staff-signed token is not a customer session', { skip }, async () => {
   // Different secret AND different audience. Either alone would be enough; both is the
   // point — a customer token must never open a staff route or vice versa.
   const jwt = (await import('jsonwebtoken')).default
-  const forged = jwt.sign({ typ: 'staff_access', phone: PHONE }, process.env.JWT_STAFF_SECRET, {
-    subject: PHONE,
+  const forged = jwt.sign({ typ: 'staff_access', email: EMAIL }, process.env.JWT_STAFF_SECRET, {
+    subject: EMAIL,
     issuer: 'sugarloop',
     audience: 'sugarloop-staff',
   })

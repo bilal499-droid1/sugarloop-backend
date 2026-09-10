@@ -27,13 +27,19 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   /**
-   * How verification codes reach a phone. See services/otpDelivery.service.js.
+   * How verification codes reach the customer. See services/otpDelivery.service.js.
    *
-   * `log` prints the code to the server console and sends nothing — the only transport
-   * that works today, because WhatsApp and Twilio both need accounts that do not exist
-   * yet. It is refused at boot in production.
+   * `email` is what checkout uses now: identity moved from the phone number to the email
+   * address, because the WhatsApp sender and its Authentication-category template are
+   * still waiting on Meta, while SMTP needed nothing but an app password. It shares the
+   * transport in services/email.service.js, so switching it on is the EMAIL_* variables.
+   *
+   * `log` prints the code to the server console and sends nothing, and is refused at boot
+   * in production. `whatsapp` and `sms` deliver to a phone and are kept for the day phone
+   * verification comes back — neither is reachable from the current checkout, which sends
+   * an address rather than a number.
    */
-  OTP_TRANSPORT: z.enum(['log', 'whatsapp', 'sms']).default('log'),
+  OTP_TRANSPORT: z.enum(['log', 'email', 'whatsapp', 'sms']).default('log'),
 
   /**
    * How order and enquiry notifications reach a phone. See services/notification.service.js.
@@ -260,6 +266,19 @@ if (env.EMAIL_TRANSPORT === 'smtp') {
     )
     process.exit(1)
   }
+}
+
+// OTP now rides the mailer, so `OTP_TRANSPORT=email` with `EMAIL_TRANSPORT=log` is a
+// checkout where every code is printed to the log stream and no customer receives one.
+// That is the same failure `assertTransportIsProductionSafe` refuses for `OTP_TRANSPORT=log`,
+// reached one variable further round, so it is refused in the same place and for the
+// same reason. Outside production it is the ordinary development pairing.
+if (env.isProduction && env.OTP_TRANSPORT === 'email' && env.EMAIL_TRANSPORT !== 'smtp') {
+  console.error(
+    '\nRefusing to start: OTP_TRANSPORT=email needs EMAIL_TRANSPORT=smtp in production — ' +
+      'otherwise every verification code is written to the logs and nothing is delivered.\n'
+  )
+  process.exit(1)
 }
 
 // Same reasoning for WhatsApp, and the stakes are higher than the mailer's: OTP delivery

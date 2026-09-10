@@ -3,7 +3,12 @@ import bcrypt from 'bcryptjs'
 import { OTP } from '../config/constants.js'
 
 /**
- * One phone-verification challenge (BACKEND-DESIGN §3, `otpSessions`).
+ * One email-verification challenge (BACKEND-DESIGN §3, `otpSessions`).
+ *
+ * Keyed by email since checkout moved off phone verification — see
+ * services/otpDelivery.service.js. Challenges written under the old `phone` key are not
+ * migrated: they live five minutes and the TTL index clears them, so the changeover
+ * costs at most one re-request to whoever was mid-checkout at deploy time.
  *
  * **The code itself is never stored.** Only a bcrypt hash of it, for the same reason a
  * password is hashed: this collection holds a live credential for every customer
@@ -21,8 +26,10 @@ const BCRYPT_COST = 10
 
 const otpChallengeSchema = new mongoose.Schema(
   {
-    /** E.164, normalised by the validator before it ever reaches this model. */
-    phone: { type: String, required: true, index: true },
+    /** Trimmed and lowercased by the validator before it ever reaches this model, so
+     *  `Ali@Example.com` and `ali@example.com` are one recipient and not two rate-limit
+     *  budgets. */
+    email: { type: String, required: true, index: true },
 
     codeHash: { type: String, required: true },
 
@@ -44,13 +51,13 @@ const otpChallengeSchema = new mongoose.Schema(
 )
 
 /**
- * Find the live challenge for a phone, newest first.
+ * Find the live challenge for an address, newest first.
  *
  * Requesting a second code does not delete the first — deleting would make a stale
  * message able to invalidate a fresh one out of order. Instead the newest wins, and the
  * older ones simply age out.
  */
-otpChallengeSchema.index({ phone: 1, createdAt: -1 })
+otpChallengeSchema.index({ email: 1, createdAt: -1 })
 
 /**
  * Mongo purges expired challenges automatically. This is housekeeping, not a security

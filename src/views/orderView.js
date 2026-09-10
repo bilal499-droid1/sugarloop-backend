@@ -85,6 +85,12 @@ function customer(order) {
     contact: {
       name: order.contact.name,
       phone: order.contact.phone,
+      /**
+       * Included since checkout moved to email verification: this is the identity the
+       * order was placed under, so the confirmation page can show it back. Null on
+       * orders written before the changeover, which had no email at all.
+       */
+      email: order.contact.email ?? null,
     },
 
     address: order.address

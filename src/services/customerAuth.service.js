@@ -1,19 +1,22 @@
 /**
- * Customer identity: prove you hold the phone, get a session.
+ * Customer identity: prove you hold the email address, get a session.
  *
- * There is no password and no signup. The phone number IS the account, and a six-digit
- * code proves it belongs to whoever is checking out. That is the only thing standing
- * between the client and prank Cash-on-Delivery orders to fake addresses — an order
- * nobody intends to accept still costs a rider trip and the food.
+ * There is no password and no signup. The email address IS the account, and a six-digit
+ * code proves it belongs to whoever is checking out.
+ *
+ * This used to verify the phone number, which is the stronger thing to prove for Cash on
+ * Delivery — see services/otpDelivery.service.js for why it moved and what that costs.
+ * The order still carries a phone and the branch still calls it; it is simply no longer
+ * proven to belong to the person who typed it.
  *
  * Two rules shape everything here:
  *
  * 1. **A code is a credential.** Never stored in plaintext, never returned to the caller
  *    (except by the development transport, which is refused in production), never
  *    reusable, and dead after five wrong guesses.
- * 2. **Every request costs money.** WhatsApp and SMS bill per message, so an unthrottled
- *    endpoint is a direct line to the client's balance. Limits are enforced per phone
- *    here and per IP in middleware.
+ * 2. **Every request costs something.** Email is free per message, but an unthrottled
+ *    endpoint is a way to mail-bomb a stranger from the shop's own domain and burn its
+ *    sending reputation. Limits are enforced per address here and per IP in middleware.
  */
 import crypto from 'node:crypto'
 import jwt from 'jsonwebtoken'
@@ -28,7 +31,7 @@ const ISSUER = 'sugarloop'
 /**
  * A different audience AND a different secret from staff tokens (see config/env.js,
  * which refuses to start if the two secrets match). A customer token must never be
- * accepted on a staff route — that would turn "I verified my phone" into an order board.
+ * accepted on a staff route — that would turn "I verified my email" into an order board.
  */
 const AUDIENCE = 'sugarloop-customer'
 const TOKEN_TYPE = 'customer_session'
@@ -45,9 +48,9 @@ function generateCode() {
   return String(crypto.randomInt(0, max)).padStart(OTP.LENGTH, '0')
 }
 
-export function signCustomerToken(phone) {
-  return jwt.sign({ typ: TOKEN_TYPE, phone }, env.JWT_CUSTOMER_SECRET, {
-    subject: phone,
+export function signCustomerToken(email) {
+  return jwt.sign({ typ: TOKEN_TYPE, email }, env.JWT_CUSTOMER_SECRET, {
+    subject: email,
     expiresIn: env.JWT_CUSTOMER_EXPIRES_IN,
     issuer: ISSUER,
     audience: AUDIENCE,
@@ -63,7 +66,7 @@ export function verifyCustomerToken(token) {
       throw new ApiError(
         401,
         'SESSION_EXPIRED',
-        'Your verification has expired. Please verify your number again.'
+        'Your verification has expired. Please verify your email address again.'
       )
     }
     throw ApiError.unauthorized('Invalid session')
@@ -71,7 +74,7 @@ export function verifyCustomerToken(token) {
 
   // Belt and braces alongside the audience check: a token minted for any other purpose
   // with this secret must not pass as a customer session.
-  if (payload.typ !== TOKEN_TYPE || !payload.phone) {
+  if (payload.typ !== TOKEN_TYPE || !payload.email) {
     throw ApiError.unauthorized('Invalid session')
   }
 
@@ -79,17 +82,17 @@ export function verifyCustomerToken(token) {
 }
 
 /**
- * Sends a code to a phone.
+ * Sends a code to an email address.
  *
- * Note what is NOT checked: whether this phone has ordered before. There is no account to
- * enumerate, so there is nothing to leak by accepting any well-formed number.
+ * Note what is NOT checked: whether this address has ordered before. There is no account
+ * to enumerate, so there is nothing to leak by accepting any well-formed address.
  */
-export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) {
+export async function requestOtp({ email, ip = '' }, { now = new Date() } = {}) {
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000)
 
-  const recent = await OtpChallenge.find({ phone, createdAt: { $gte: hourAgo } })
+  const recent = await OtpChallenge.find({ email, createdAt: { $gte: hourAgo } })
     .sort({ createdAt: -1 })
-    .limit(OTP.MAX_PER_PHONE_PER_HOUR)
+    .limit(OTP.MAX_PER_RECIPIENT_PER_HOUR)
 
   /**
    * Cooldown before the per-hour cap, so the common case — an impatient double-tap on
@@ -106,7 +109,7 @@ export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) 
     }
   }
 
-  if (recent.length >= OTP.MAX_PER_PHONE_PER_HOUR) {
+  if (recent.length >= OTP.MAX_PER_RECIPIENT_PER_HOUR) {
     // Oldest of the ones counted against the cap — when it ages out, a slot frees.
     const oldest = recent[recent.length - 1]
     const retryAfterSeconds = Math.max(
@@ -117,7 +120,7 @@ export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) 
     throw new ApiError(
       429,
       'OTP_RATE_LIMITED',
-      'Too many codes requested for this number. Please try again later.',
+      'Too many codes requested for this address. Please try again later.',
       { retryAfterSeconds }
     )
   }
@@ -125,7 +128,7 @@ export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) 
   const code = generateCode()
 
   const challenge = await OtpChallenge.create({
-    phone,
+    email,
     codeHash: await OtpChallenge.hashCode(code),
     expiresAt: new Date(now.getTime() + OTP.TTL_MINUTES * 60 * 1000),
     ip,
@@ -134,11 +137,11 @@ export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) 
   /**
    * Delivery failure deletes the challenge.
    *
-   * Otherwise a WhatsApp outage would burn one of the customer's three hourly attempts
+   * Otherwise a mail-server outage would burn one of the customer's three hourly attempts
    * on a code they never received — and after three, they cannot order at all.
    */
   try {
-    await deliverOtp({ phone, code })
+    await deliverOtp({ recipient: email, code })
   } catch (error) {
     await OtpChallenge.deleteOne({ _id: challenge._id })
     throw error
@@ -151,7 +154,7 @@ export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) 
     /**
      * Returned ONLY when nothing actually delivered it — the development `log`
      * transport, outside production. Without this there is no way to complete a checkout
-     * on a machine with no WhatsApp account, which would make the whole flow untestable.
+     * on a machine with no mail account, which would make the whole flow untestable.
      */
     ...(mayEchoCode() ? { devCode: code } : {}),
   }
@@ -162,12 +165,12 @@ export async function requestOtp({ phone, ip = '' }, { now = new Date() } = {}) 
  *
  * Every failure mode returns the same `OTP_INVALID` code and a deliberately unspecific
  * message. Distinguishing "no code was requested" from "wrong code" from "expired" would
- * tell an attacker which numbers are mid-checkout and which guesses are getting closer.
+ * tell an attacker which addresses are mid-checkout and which guesses are getting closer.
  * The one exception is running out of attempts, which the customer genuinely needs to
  * know about — otherwise they retype the same code forever against a dead challenge.
  */
-export async function verifyOtp({ phone, code }, { now = new Date() } = {}) {
-  const challenge = await OtpChallenge.findOne({ phone }).sort({ createdAt: -1 })
+export async function verifyOtp({ email, code }, { now = new Date() } = {}) {
+  const challenge = await OtpChallenge.findOne({ email }).sort({ createdAt: -1 })
 
   const reject = () => {
     throw new ApiError(401, 'OTP_INVALID', 'That code is not valid. Please check and try again.')
@@ -210,5 +213,5 @@ export async function verifyOtp({ phone, code }, { now = new Date() } = {}) {
   challenge.consumedAt = now
   await challenge.save()
 
-  return { phone, token: signCustomerToken(phone), expiresIn: env.JWT_CUSTOMER_EXPIRES_IN }
+  return { email, token: signCustomerToken(email), expiresIn: env.JWT_CUSTOMER_EXPIRES_IN }
 }

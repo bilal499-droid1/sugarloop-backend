@@ -32,7 +32,7 @@ router.post(
 )
 
 /**
- * One order, by number. Requires the phone it was placed with — order numbers are
+ * One order, by number. Requires the email it was placed with — order numbers are
  * sequential and enumerable, so this is what stops them being counted through. Replaced by
  * the OTP session in Sprint 2.
  */
@@ -42,7 +42,7 @@ router.get(
   asyncHandler(orderController.getByNumber)
 )
 
-/** The same order as a PDF the customer can keep. Gated on the same phone. */
+/** The same order as a PDF the customer can keep. Gated on the same email. */
 router.get(
   '/:orderNumber/invoice',
   validate({ params: orderNumberParamSchema, query: getOrderQuerySchema }),

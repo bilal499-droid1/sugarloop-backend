@@ -110,7 +110,11 @@ export function renderOrderInvoice(order, branch) {
   doc.fillColor(MUTED).fontSize(9).text('BILLED TO', left, detailsTop)
   doc.fillColor(INK).fontSize(10)
   doc.text(order.contact.name)
-  doc.text(order.contact.phone)
+  // Whichever the order actually carries. Since checkout stopped asking for a number,
+  // the email is usually the only contact detail there is — and passing `undefined` to
+  // `doc.text` throws, so this can never be left to chance.
+  if (order.contact.phone) doc.text(order.contact.phone)
+  if (order.contact.email) doc.text(order.contact.email)
 
   if (order.address) {
     const parts = [order.address.line1, order.address.area, order.address.city].filter(Boolean)

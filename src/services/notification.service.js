@@ -163,9 +163,11 @@ export async function notify({ to, template, params = [] }, { send } = {}) {
   }
 
   // A template with no recipient is not an error worth raising — a pickup order has no
-  // rider to message, and a branch with no phone on file is a seeding gap, not a bug in
-  // the order that triggered it. Both are worth seeing in the log, neither is worth
-  // failing a write over.
+  // rider to message, a branch with no phone on file is a seeding gap, and since checkout
+  // stopped collecting a mobile number EVERY customer-facing message now lands here. All
+  // three are worth seeing in the log; none is worth failing a write over. This is the
+  // quiet consequence of parking the phone field: customers are no longer told anything
+  // about their own order.
   if (!to) {
     logger.warn({ template }, 'Notification skipped — no recipient number')
     return { sent: false }

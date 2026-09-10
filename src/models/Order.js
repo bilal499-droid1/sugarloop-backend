@@ -98,8 +98,23 @@ const orderSchema = new mongoose.Schema(
 
     contact: {
       name: { type: String, required: true, trim: true, maxlength: 120 },
-      /** E.164. The only handle on a COD customer, and the one staff will ring. */
-      phone: { type: String, required: true, trim: true },
+      /**
+       * E.164, and no longer required — checkout stopped collecting it (the field is
+       * parked in the storefront's CheckoutPage). It used to be the only handle on a COD
+       * customer and the one staff would ring; on new orders there is usually nothing
+       * here at all, and the branch has only the email address to chase.
+       */
+      phone: { type: String, trim: true, default: null },
+      /**
+       * The identity checkout verifies now — `assertEmailWasVerified` matches every new
+       * order against the OTP session's address, and validators/order.validator.js
+       * refuses an order without one.
+       *
+       * Deliberately NOT `required` here even so. Orders placed before the changeover
+       * have no email, and a required field would make every later `.save()` on one —
+       * a staff status update, an escalation — fail validation on data that was legal
+       * when it was written. The gate belongs at the door, not on rows already inside.
+       */
       email: { type: String, trim: true, lowercase: true, default: null },
     },
 

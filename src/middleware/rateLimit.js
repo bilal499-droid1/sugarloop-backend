@@ -18,7 +18,7 @@ const handler = (_req, _res, next) => {
  * on every restart, so a deploy hands every attacker a fresh budget; and it is per
  * process, so two instances enforce double the limit each thinks it is enforcing. On
  * OTP that is not a performance detail — the per-IP cap IS the control that stops a
- * script walking a million six-digit codes, and the per-phone cap in the OTP service is
+ * script walking a million six-digit codes, and the per-recipient cap in the OTP service is
  * the only other thing standing there.
  *
  * What it does not affect is a single developer on a laptop, which is why it stays the
@@ -85,7 +85,7 @@ export const orderLimiter = rateLimit({
  * verifies once every four days, so ten an hour from one address is already far more
  * than legitimate use needs, and the low number is the point.
  *
- * The per-phone cap (3/hour, in customerAuth.service.js) is deliberately NOT relaxed.
+ * The per-recipient cap (3/hour, in customerAuth.service.js) is deliberately NOT relaxed.
  * That is the limit protecting the client's bill and any individual person's handset
  * from being rung repeatedly, and it should behave identically everywhere so a
  * developer meets the same rule a customer will.

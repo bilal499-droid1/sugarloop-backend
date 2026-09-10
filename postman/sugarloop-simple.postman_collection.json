@@ -242,7 +242,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"{{branchCode}}\",\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\"\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{productId}}\",\n      \"qty\": 2\n    }\n  ],\n  \"expectedTotal\": \"{{quotedTotal}}\"\n}"
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"{{branchCode}}\",\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\",\n    \"email\": \"customer@example.com\"\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{productId}}\",\n      \"qty\": 2\n    }\n  ],\n  \"expectedTotal\": \"{{quotedTotal}}\"\n}"
             },
             "url": "{{baseUrl}}/orders",
             "description": "Re-runs the pricing engine from scratch and rejects with PRICE_CHANGED if anything moved since the quote. expectedTotal is what the customer was shown — quote first."

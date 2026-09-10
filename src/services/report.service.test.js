@@ -97,6 +97,7 @@ async function seedFixtures() {
 }
 
 const CUSTOMER_PHONE = '+923001234567'
+const CUSTOMER_EMAIL = 'ayesha.khan@example.com'
 
 /**
  * Places a real order through the real pricing path, then backdates it into the business
@@ -112,11 +113,11 @@ async function placeOrder({ branchCode = 'DHA2', qty = 2, expectedTotal = 85_800
     {
       fulfilment: 'pickup',
       branchCode,
-      contact: { name: 'Ayesha Khan', phone: CUSTOMER_PHONE },
+      contact: { name: 'Ayesha Khan', phone: CUSTOMER_PHONE, email: CUSTOMER_EMAIL },
       items: [{ kind: 'product', productId: String(donut._id), qty }],
       expectedTotal,
     },
-    { verifiedPhone: CUSTOMER_PHONE },
+    { verifiedEmail: CUSTOMER_EMAIL },
     { now: NOW }
   )
 

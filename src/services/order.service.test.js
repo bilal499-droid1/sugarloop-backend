@@ -72,11 +72,12 @@ async function seedFixtures() {
 }
 
 const CUSTOMER_PHONE = '+923001234567'
+const CUSTOMER_EMAIL = 'ayesha.khan@example.com'
 
 const request = (overrides = {}) => ({
   fulfilment: 'pickup',
   branchCode: 'DHA2',
-  contact: { name: 'Ayesha Khan', phone: CUSTOMER_PHONE },
+  contact: { name: 'Ayesha Khan', phone: CUSTOMER_PHONE, email: CUSTOMER_EMAIL },
   items: [{ kind: 'product', productId: String(kitkat._id), qty: 2 }],
   expectedTotal: 85_800,
   ...overrides,
@@ -85,9 +86,9 @@ const request = (overrides = {}) => ({
 /**
  * What the route supplies after `requireCustomer` has checked the OTP session. The
  * service refuses to place an order without it, so every call here has to carry one â€”
- * see `assertPhoneWasVerified`.
+ * see `assertEmailWasVerified`.
  */
-const CONTEXT = { verifiedPhone: CUSTOMER_PHONE }
+const CONTEXT = { verifiedEmail: CUSTOMER_EMAIL }
 
 test('order service', { skip, concurrency: false }, async (t) => {
   t.beforeEach(seedFixtures)
@@ -236,41 +237,71 @@ test('order service', { skip, concurrency: false }, async (t) => {
     assert.equal(order.meta.ip, '203.0.113.9', 'stored for an unpaid COD order')
   })
 
-  await t.test('an order must use the phone that was verified', async () => {
-    // Verifying your own number then ordering under someone else's is the exact prank
-    // scenario OTP exists to stop: the callback number is the only handle the branch has
-    // on a Cash-on-Delivery customer.
+  await t.test('an order must use the email that was verified', async () => {
+    // Verifying your own address then ordering under someone else's contact details is
+    // what this stops. A weaker guarantee than the phone check it replaced — an inbox is
+    // free, a SIM is not — but an order still cannot name an identity nobody proved.
     await assert.rejects(
       () =>
         orderService.create(
-          request({ contact: { name: 'Someone Else', phone: '+923009999999' } }),
+          request({
+            contact: {
+              name: 'Someone Else',
+              phone: '+923009999999',
+              email: 'someone.else@example.com',
+            },
+          }),
           CONTEXT,
           { now: NOW }
         ),
-      (err) => err.statusCode === 403 && err.code === 'PHONE_MISMATCH'
+      (err) => err.statusCode === 403 && err.code === 'EMAIL_MISMATCH'
     )
 
     assert.equal(await Order.countDocuments(), 0, 'nothing was written')
   })
 
-  await t.test('an order with no verified phone at all is refused', async () => {
+  await t.test('an order with no verified email at all is refused', async () => {
     // Guards against a future refactor silently dropping `requireCustomer` from the route.
     await assert.rejects(() => orderService.create(request(), {}, { now: NOW }))
     assert.equal(await Order.countDocuments(), 0)
   })
 
-  await t.test('lookup by number requires the phone it was placed with', async () => {
+  await t.test('lookup by number requires the email it was placed with', async () => {
     const order = await orderService.create(request(), CONTEXT, { now: NOW })
 
-    const found = await orderService.getByNumber(order.orderNumber, { phone: '+923001234567' })
+    const found = await orderService.getByNumber(order.orderNumber, { email: CUSTOMER_EMAIL })
     assert.equal(found.orderNumber, order.orderNumber)
 
-    // Order numbers are sequential and enumerable. A wrong phone gets 404, not 403 â€”
+    // Order numbers are sequential and enumerable. A wrong address gets 404, not 403 —
     // confirming the order exists but belongs to someone else is the same leak.
     await assert.rejects(
-      () => orderService.getByNumber(order.orderNumber, { phone: '+923009999999' }),
+      () => orderService.getByNumber(order.orderNumber, { email: 'someone.else@example.com' }),
       (err) => err.statusCode === 404
     )
+  })
+
+  await t.test('an order with no email stored cannot be opened by omitting the query', async () => {
+    // Orders written before checkout moved to email have no address on them. Without the
+    // explicit guard, `undefined !== undefined` is false and a bare
+    // `GET /orders/SL-...` would walk straight through the gate it is supposed to meet.
+    const order = await orderService.create(request(), CONTEXT, { now: NOW })
+    await Order.updateOne({ _id: order._id }, { $unset: { 'contact.email': 1 } })
+
+    await assert.rejects(
+      () => orderService.getByNumber(order.orderNumber, {}),
+      (err) => err.statusCode === 404
+    )
+  })
+
+  await t.test('an order places without a phone, now that checkout stops asking', async () => {
+    const order = await orderService.create(
+      request({ contact: { name: 'No Number', email: CUSTOMER_EMAIL } }),
+      CONTEXT,
+      { now: NOW }
+    )
+
+    assert.ok(order.orderNumber)
+    assert.ok(!order.contact.phone, 'nothing invented to fill the gap')
   })
 
   await t.test('order numbers are unique at the database level too', async () => {

@@ -12,11 +12,11 @@ function contextOf(req) {
 }
 
 export async function create(req, res) {
-  // The verified phone comes off the token, never off the body — the body is the thing
+  // The verified email comes off the token, never off the body — the body is the thing
   // being checked. See order.service.create.
   const order = await orderService.create(req.body, {
     ...contextOf(req),
-    verifiedPhone: req.customer.phone,
+    verifiedEmail: req.customer.email,
   })
 
   return created(res, { order: orderView.customer(order) })
@@ -29,7 +29,7 @@ export async function getByNumber(req, res) {
 }
 
 export async function invoice(req, res) {
-  // Same phone gate as the lookup above, via the same service call: order numbers are
+  // Same email gate as the lookup above, via the same service call: order numbers are
   // sequential, so an invoice route that skipped it would hand over every customer's
   // address and basket by counting.
   const order = await orderService.getByNumber(req.params.orderNumber, req.validatedQuery)

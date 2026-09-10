@@ -4,7 +4,7 @@ Ordering API for Sugarloop — a Cash-on-Delivery donut shop with four branches 
 Islamabad. Node + Express + Mongoose + Zod on MongoDB, MVC layout, REST at `/api/v1`.
 
 **Status: Sprint 1 feature-complete; runs locally.** A customer can browse the menu, be
-quoted a price the server computed, **verify their phone by OTP**, and **place a
+quoted a price the server computed, **verify their email by OTP**, and **place a
 Cash-on-Delivery order**; a branch can then **work that order through to completion**,
 toggle its own stock, and work the corporate gifting inbox. Order notifications fire on
 every event that should send one.
@@ -15,11 +15,21 @@ one EC2 instance, same origin — see [Deployment](#deployment). There is still 
 
 One thing stands between this and real customers, and it is not code we can finish alone:
 
-- **Nothing actually delivers a message.** WhatsApp needs the client's Meta Business
+- **Customer verification moved from the phone number to the email address.** Checkout
+  now sends the code by SMTP, because the mailer needed nothing but a Gmail app password
+  while the WhatsApp sender is still in Meta's queue. Set `OTP_TRANSPORT=email` with
+  `EMAIL_TRANSPORT=smtp`. **This is a weaker guarantee than the one it replaced**: a
+  verified phone number made a prank Cash-on-Delivery order cost a real SIM, and a
+  throwaway inbox costs nothing. The number is still collected and still what the branch
+  rings — it is simply no longer proven. `whatsapp` and `sms` remain in
+  `otpDelivery.service.js` intact, and the server refuses to boot with either while
+  checkout sends an address rather than a number. See
+  [Customer verification](#customer-verification).
+
+- **Order notifications still deliver nothing.** WhatsApp needs the client's Meta Business
   account and per-template approval (1–3 days each, now **×8** — the escalation added
-  `sugarloop_order_unacknowledged`); SMS needs a Twilio account. Until one exists,
-  `OTP_TRANSPORT=log` and `NOTIFY_TRANSPORT=log` render to the console and send nothing,
-  and the server refuses to boot in production on either.
+  `sugarloop_order_unacknowledged`). Until one exists, `NOTIFY_TRANSPORT=log` renders to
+  the console and sends nothing, and the server refuses to boot in production on it.
   **This is calendar time, not dev time — start the application now.**
 
 See [Roadmap](#roadmap).
@@ -244,6 +254,36 @@ meets is the rule a customer meets. It is a ceiling on abuse rather than a throt
 use — a company asking about gift boxes sends one, and a script cannot fill the shop's
 inbox or burn its SMTP reputation before anyone notices.
 
+### Customer verification
+
+```
+POST /auth/otp/request               { email }         mails a 6-digit code
+POST /auth/otp/verify                { email, code }   exchanges it for a session
+GET  /auth/me                        the verified address, or 401
+POST /auth/logout                    clears the session
+```
+
+There is no password and no signup — **the email address is the account**. `verify` sets
+a four-day httpOnly cookie and also returns the token in the body for Postman and the
+test suite; `POST /orders` accepts either, and refuses any order whose `contact.email`
+differs from the verified one (`EMAIL_MISMATCH`).
+
+**This used to verify the phone number, and that mattered more than it looks.** Nothing
+is paid at checkout, so the callback number is the only handle a branch has on a
+Cash-on-Delivery customer; proving it made a prank order cost the prankster a real,
+reachable SIM. An email address costs nothing and can be discarded in seconds, so the
+prank-order defence is materially weaker now. The trade was made because the WhatsApp
+sender is still in Meta's review queue while SMTP needed one app password. The number is
+still required on every order and is still what the branch rings — it is simply no longer
+proven. `otpDelivery.service.js` keeps the `whatsapp` and `sms` transports intact for the
+day this is reversed.
+
+Codes are hashed with bcrypt, never stored or returned in plaintext (the `log` transport's
+dev echo excepted, and that is refused in production), expire in 5 minutes, die after 5
+wrong guesses, and are capped at 3 per address per hour with a 60-second resend cooldown
+— plus a 10/hour per-IP limiter, because an attacker rotating IPs would sail past an
+address cap while still filling one victim's inbox.
+
 ### Staff — `Authorization: Bearer <accessToken>`
 
 ```
@@ -461,9 +501,10 @@ renders the message to the console and is refused at boot in production — a sh
 branches are never told an order arrived is an order nobody makes. `whatsapp` is the Meta
 Cloud API and is **not implemented**: the six templates are Utility category and each needs
 its own approval, which is the client's Meta Business account to obtain. It is a separate
-switch from `OTP_TRANSPORT` on purpose — `sugarloop_otp` is Authentication category and
-reviewed independently, so a working OTP flow should not wait on the slowest order
-template.
+switch from `OTP_TRANSPORT` on purpose, and now a different channel entirely: OTP goes
+out over SMTP while these six wait on Meta. Even when the WhatsApp account lands they
+stay separate — `sugarloop_otp` is Authentication category and reviewed independently,
+so a working OTP flow should not wait on the slowest order template.
 
 What this does *not* do yet is record whether a message arrived. Meta reports that
 asynchronously on the inbound webhook, which is the next piece of work; until it exists the
@@ -650,7 +691,7 @@ is how the box goes up before the Meta templates land.
 | 6 Orders + numbering | ✅ |
 | 7 Staff auth + RBAC | ✅ built ahead of order |
 | 8 Order status + stock toggles | ✅ |
-| Customer phone OTP | ✅ pulled forward from sprint 2 — `POST /orders` is gated on it |
+| Customer email OTP | ✅ pulled forward from sprint 2 — `POST /orders` is gated on it |
 | 9 Geocoding + branch assignment | ✅ `POST /branches/resolve`, cached, provider-swappable |
 | Corporate enquiries + FAQ questions | ✅ public forms, admin inbox, per-kind queues |
 | Order notifications | ✅ wired to every event, send implemented — running on `log` until Meta credentials land |
@@ -661,8 +702,10 @@ is how the box goes up before the Meta templates land.
 | Daily report | ✅ JSON + PDF, branch-scoped, takings from completed orders |
 | Running sales total | ✅ `/staff/reports/summary` — all-time or a date range |
 | 10 Staging deploy | ✅ live at `api.sugarloop.pk` — EC2 + Docker + nginx, Atlas, shop on the same origin |
-| WhatsApp send | ✅ built — `whatsapp.client.js`, wired to OTP and notifications; **not switched on** |
+| Email OTP | ✅ live — `OTP_TRANSPORT=email` over the shop's own SMTP; what checkout verifies today |
+| WhatsApp send | ✅ built — `whatsapp.client.js`, wired to notifications and still to OTP; **not switched on** |
 | **WhatsApp go-live** | ❌ **next** — credentials + approved templates, blocked on the Meta account |
+| Phone verification | ⏸ parked — returns when the Meta approvals land; see `otpDelivery.service.js` |
 | SMS fallback | ❌ not implemented — `otpDelivery.service.js` throws on `OTP_TRANSPORT=sms` |
 
 **Geocoding runs on OpenStreetMap until a Maps key exists.** That is a real quality gap,
@@ -678,20 +721,30 @@ Sprint 2 and beyond: SMS fallback, the inbound webhook and auto-reply, Cloudinar
 recipient, every template. `notification.service.js` calls `sendTemplate()` in
 `whatsapp.client.js`, exactly as `otpDelivery.service.js` does for the OTP.
 
-What is missing is not code but an account. Both transports default to `log`, which
-renders the message and delivers nothing. Switching them on is configuration:
+What is missing is not code but an account. `NOTIFY_TRANSPORT` defaults to `log`, which
+renders the message and delivers nothing. Switching it on is configuration:
 
 ```bash
-OTP_TRANSPORT=whatsapp
 NOTIFY_TRANSPORT=whatsapp
 WHATSAPP_TOKEN=...
 WHATSAPP_PHONE_NUMBER_ID=...
 ```
 
-Until then every template still has to be created and approved in the Meta console — the
-OTP one under the authentication category, which is the only category Meta permits to
-carry a passcode. `NODE_ENV=production` refuses to boot while any transport is still
-`log`, so the flip to production and the arrival of these credentials are the same event.
+Until then every template still has to be created and approved in the Meta console.
+`NODE_ENV=production` refuses to boot while that transport is still `log`, so the flip to
+production and the arrival of these credentials are the same event.
+
+**Do not set `OTP_TRANSPORT=whatsapp` alongside it.** Checkout verifies an email address
+now, so that transport would be handed an `@` where it expects an E.164 number — the
+server refuses to boot rather than let it fail per-customer. Bringing phone verification
+back is a code change (key the challenge and the session on the number again), not a
+config flip. Production OTP runs on:
+
+```bash
+OTP_TRANSPORT=email
+EMAIL_TRANSPORT=smtp
+```
+
 See [Notifications](#notifications).
 
 **Corporate enquiries are in, end to end.** `POST /enquiries` stores the lead and emails

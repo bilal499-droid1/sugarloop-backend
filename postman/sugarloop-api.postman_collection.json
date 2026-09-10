@@ -863,7 +863,7 @@
       "name": "2c · Orders",
       "item": [
         {
-          "name": "Placing an order without a verified phone → 401",
+          "name": "Placing an order without a verified email → 401",
           "event": [
             {
               "listen": "test",
@@ -874,7 +874,7 @@
                   "// unverified caller is turned away before the API even looks at the body — this",
                   "// would 422 on expectedTotal if the gate were not first.",
                   "pm.test('401', () => pm.response.to.have.status(401))",
-                  "pm.test('PHONE_NOT_VERIFIED', () => pm.expect(pm.response.json().error.code).to.eql('PHONE_NOT_VERIFIED'))"
+                  "pm.test('EMAIL_NOT_VERIFIED', () => pm.expect(pm.response.json().error.code).to.eql('EMAIL_NOT_VERIFIED'))"
                 ]
               }
             }
@@ -889,13 +889,13 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"No Session\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 1 }\n  ],\n  \"expectedTotal\": 0\n}"
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"No Session\", \"phone\": \"03001234567\", \"email\": \"customer@example.com\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 1 }\n  ],\n  \"expectedTotal\": 0\n}"
             },
             "url": "{{baseUrl}}/orders"
           }
         },
         {
-          "name": "Verify the customer's phone — request a code",
+          "name": "Verify the customer's email — request a code",
           "event": [
             {
               "listen": "test",
@@ -922,13 +922,13 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"03001234567\"\n}"
+              "raw": "{\n  \"email\": \"customer@example.com\"\n}"
             },
             "url": "{{baseUrl}}/auth/otp/request"
           }
         },
         {
-          "name": "Verify the customer's phone — submit the code",
+          "name": "Verify the customer's email — submit the code",
           "event": [
             {
               "listen": "test",
@@ -937,7 +937,7 @@
                 "exec": [
                   "pm.test('200', () => pm.response.to.have.status(200))",
                   "const d = pm.response.json().data",
-                  "pm.test('normalised to E.164', () => pm.expect(d.phone).to.eql('+923001234567'))",
+                  "pm.test('echoes the verified address', () => pm.expect(d.email).to.eql('customer@example.com'))",
                   "pm.collectionVariables.set('customerToken', d.token)",
                   "// The httpOnly cookie is also set for a browser client; Postman/newman have no",
                   "// cookie jar worth relying on here, so every order-placing request below sends",
@@ -957,7 +957,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"03001234567\",\n  \"code\": \"{{customerOtpCode}}\"\n}"
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"code\": \"{{customerOtpCode}}\"\n}"
             },
             "url": "{{baseUrl}}/auth/otp/verify"
           }
@@ -1051,7 +1051,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"address\": {\n    \"line1\": \"House 12, Street 4\",\n    \"area\": \"Sector E\",\n    \"notes\": \"Blue gate\"\n  },\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\"\n  },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": {{quotedTotal}}\n}"
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"address\": {\n    \"line1\": \"House 12, Street 4\",\n    \"area\": \"Sector E\",\n    \"notes\": \"Blue gate\"\n  },\n  \"contact\": {\n    \"name\": \"Ayesha Khan\",\n    \"phone\": \"03001234567\",\n    \"email\": \"customer@example.com\"\n  },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": {{quotedTotal}}\n}"
             },
             "url": "{{baseUrl}}/orders"
           }
@@ -1141,7 +1141,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Stale Quote\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 50000\n}"
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Stale Quote\", \"phone\": \"03001234567\", \"email\": \"customer@example.com\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 50000\n}"
             },
             "url": "{{baseUrl}}/orders"
           }
@@ -1173,7 +1173,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"contact\": { \"name\": \"No Address\", \"phone\": \"03001234567\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 95800\n}"
+              "raw": "{\n  \"fulfilment\": \"delivery\",\n  \"location\": { \"lat\": 33.5312, \"lng\": 73.1574 },\n  \"contact\": { \"name\": \"No Address\", \"phone\": \"03001234567\", \"email\": \"customer@example.com\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 95800\n}"
             },
             "url": "{{baseUrl}}/orders"
           }
@@ -1208,7 +1208,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Bad Phone\", \"phone\": \"12345\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 85800\n}"
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": { \"name\": \"Bad Phone\", \"phone\": \"12345\", \"email\": \"customer@example.com\" },\n  \"items\": [\n    { \"kind\": \"product\", \"productId\": \"{{kitkatId}}\", \"qty\": 2 }\n  ],\n  \"expectedTotal\": 85800\n}"
             },
             "url": "{{baseUrl}}/orders"
           }
@@ -1821,7 +1821,7 @@
           }
         },
         {
-          "name": "Verify the second customer's phone — request a code",
+          "name": "Verify the second customer's email — request a code",
           "event": [
             {
               "listen": "test",
@@ -1845,13 +1845,13 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"03009876543\"\n}"
+              "raw": "{\n  \"email\": \"second@example.com\"\n}"
             },
             "url": "{{baseUrl}}/auth/otp/request"
           }
         },
         {
-          "name": "Verify the second customer's phone — submit the code",
+          "name": "Verify the second customer's email — submit the code",
           "event": [
             {
               "listen": "test",
@@ -1874,7 +1874,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"03009876543\",\n  \"code\": \"{{failCustomerOtpCode}}\"\n}"
+              "raw": "{\n  \"email\": \"second@example.com\",\n  \"code\": \"{{failCustomerOtpCode}}\"\n}"
             },
             "url": "{{baseUrl}}/auth/otp/verify"
           }
@@ -1911,7 +1911,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": {\n    \"name\": \"Bilal Ahmed\",\n    \"phone\": \"03009876543\"\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{kitkatId}}\",\n      \"qty\": 2\n    }\n  ],\n  \"expectedTotal\": {{failTotal}}\n}"
+              "raw": "{\n  \"fulfilment\": \"pickup\",\n  \"branchCode\": \"DHA2\",\n  \"contact\": {\n    \"name\": \"Bilal Ahmed\",\n    \"phone\": \"03009876543\",\n    \"email\": \"second@example.com\"\n  },\n  \"items\": [\n    {\n      \"kind\": \"product\",\n      \"productId\": \"{{kitkatId}}\",\n      \"qty\": 2\n    }\n  ],\n  \"expectedTotal\": {{failTotal}}\n}"
             },
             "url": "{{baseUrl}}/orders"
           }

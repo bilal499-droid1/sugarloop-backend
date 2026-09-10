@@ -20,10 +20,31 @@ const phone = z
     return `+92${digits}`
   })
 
+/**
+ * Required, not optional, since checkout moved to email verification: this is the
+ * address the OTP session is keyed by, and `assertEmailWasVerified` compares the order
+ * against it. An order with no email could not be matched to any session, so accepting
+ * one would mean accepting an order nobody had verified.
+ *
+ * Lowercased and trimmed by the same rule as validators/customerAuth.validator.js, or
+ * the two sides of that comparison could differ by nothing but capitals.
+ */
+const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(254)
+
 const contact = z.object({
   name: z.string().trim().min(2, 'Name is required').max(120),
-  phone,
-  email: z.string().trim().toLowerCase().email().optional().nullable(),
+  /**
+   * Optional, and that is a decision worth being explicit about.
+   *
+   * Checkout no longer asks for a number at all — the field is parked in the storefront's
+   * CheckoutPage. So a Cash-on-Delivery order can now arrive with no way to reach the
+   * customer: nobody has paid, a rider is going to a real address, and the branch has
+   * only an email address to chase. The rule itself is unchanged and still applies to any
+   * number that IS sent, so restoring this to required is deleting `.optional()` here and
+   * uncommenting the field in the storefront.
+   */
+  phone: phone.optional(),
+  email,
 })
 
 const address = z.object({
@@ -98,5 +119,6 @@ export const orderNumberParamSchema = z.object({
     .regex(/^SL-\d{6}-\d{4,}$/, 'Must be an order number like SL-260810-0042'),
 })
 
-/** Looking up your own order while there is no customer login. See order.service.js. */
-export const getOrderQuerySchema = z.object({ phone })
+/** Looking up your own order while there is no customer login. See order.service.js.
+ *  Keyed on email since checkout stopped collecting a phone number. */
+export const getOrderQuerySchema = z.object({ email })
