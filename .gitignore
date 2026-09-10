@@ -30,3 +30,8 @@ public/
 # compromised server, and rotating it means replacing the key pair on the instance.
 *.pem
 *.key
+
+# The built shop, tarred for scp to the EC2 box by the deploy steps in the README.
+# Same reasoning as public/ above: a deploy artefact, rebuilt from the frontend repo,
+# and 5MB of binary that this PUBLIC repository has no reason to carry.
+public.tar.gz
