@@ -13,6 +13,7 @@
     "start": "node src/server.js",
     "build:web": "node src/scripts/buildWeb.js",
     "seed": "node src/scripts/seed.js",
+    "staff:password": "node src/scripts/resetStaffPassword.js",
     "email:test": "node src/scripts/emailTest.js",
     "lint": "eslint src",
     "test": "node --test",
