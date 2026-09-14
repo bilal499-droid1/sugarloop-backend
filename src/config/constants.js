@@ -139,6 +139,7 @@ export const OTP = Object.freeze({
 
 export const PRODUCT_CATEGORIES = Object.freeze([
   'Donuts',
+  'Brownies',
   'Croissants',
   'Sandwiches',
   'Drinks',

@@ -1,5 +1,6 @@
 /**
- * The Sugarloop catalogue — 43 items, transcribed from the frontend's `productsData.js`.
+ * The Sugarloop catalogue — 48 items, transcribed from the frontend's `productsData.js`.
+ * 43 of them are the original menu; the Blueberry donut and four Brownies came later.
  *
  * This is seed INPUT, not runtime data. Once `npm run seed` has run, the `products`
  * collection is the source of truth and this file is only re-read when the menu changes.
@@ -16,13 +17,14 @@
  *   backend — `Product.images` needs Cloudinary `{ url, publicId }` pairs, which is
  *   blocked on the account migration in plan §10. They are kept as plain strings so that
  *   when the images are uploaded, the product-to-image mapping does not have to be
- *   reconstructed by hand for 43 items.
+ *   reconstructed by hand for every item.
  * - `legacyId` is the frontend's numeric id and IS persisted (kickoff §2): the live site
  *   keys its localStorage carts by it, so without the mapping every open cart breaks on
  *   cutover. Nothing in the API identifies a product this way — that is `slug`.
  * - `sku` follows the kickoff §2 scheme: category prefix + slug, prefixes DON / CRO / SAN
- *   / DRK. This is what Nimbus POS maps against in Phase 2, so it must not drift.
- * - `size: 'sm'` from the frontend is dropped. It was uniform across all 43 items and the
+ *   / DRK, plus BRW for the Brownies category added after the original transcription.
+ *   This is what Nimbus POS maps against in Phase 2, so it must not drift.
+ * - `size: 'sm'` from the frontend is dropped. It was uniform across every item and the
  *   design has no variants or modifiers.
  *
  * ⚠️ Open items this data does not resolve (plan §16, §17):
@@ -30,7 +32,7 @@
  *   copy is still owed by the client.
  * - No allergen, ingredient or calorie data. Whether the site needs it is unanswered.
  * - Frontend ids 7, 11, 23 and 26 are absent. Plan §17 asks whether those are deliberate
- *   removals or an incomplete menu; still unconfirmed, so 43 items is what we seed.
+ *   removals or an incomplete menu; still unconfirmed, so they stay unseeded.
  */
 
 const DESCRIPTION =
@@ -60,6 +62,10 @@ export const CATALOGUE = [
   { legacyId: 5,  sku: 'DON-SALTED-CARAMEL',      slug: 'salted-caramel',      name: 'Salted Caramel',       price: 299, category: 'Donuts', type: 'Signature',      boxEligible: true, sortOrder: 50,  description: DESCRIPTION, sourceImages: ['saltedCaramel1', 'saltedCaramel2', 'saltedCaramel3'] },
   { legacyId: 6,  sku: 'DON-BOSTON-CREME',        slug: 'boston-creme',        name: 'Boston Creme',         price: 299, category: 'Donuts', type: 'Signature',      boxEligible: true, sortOrder: 60,  description: DESCRIPTION, sourceImages: ['bostonCreme1', 'bostonCreme2', 'bostonCreme3'] },
   { legacyId: 8,  sku: 'DON-MIX-BERRY',           slug: 'mix-berry',           name: 'Mix Berry',            price: 299, category: 'Donuts', type: 'Signature',      boxEligible: true, sortOrder: 70,  description: DESCRIPTION, sourceImages: ['mixBerry1', 'mixBerry2', 'mixBerry3'] },
+  // sortOrder 75 keeps Blueberry next to Mix Berry, where the storefront's hand-curated
+  // array puts it — the seeded order is what the menu renders, so a trailing 200 would
+  // have dropped it past the Crafted donuts.
+  { legacyId: 48, sku: 'DON-BLUEBERRY',           slug: 'blueberry',           name: 'Blueberry',            price: 299, category: 'Donuts', type: 'Signature',      boxEligible: true, sortOrder: 75,  description: DESCRIPTION, sourceImages: ['blueberry1', 'blueberry2'] },
   { legacyId: 9,  sku: 'DON-BROWNIE-FILLED',      slug: 'brownie-filled',      name: 'Brownie Filled',       price: 299, category: 'Donuts', type: 'Signature',      boxEligible: true, sortOrder: 80,  description: DESCRIPTION, sourceImages: ['brownieFilled1', 'brownieFilled2'] },
   { legacyId: 10, sku: 'DON-MANGO',               slug: 'mango',               name: 'Mango',                price: 299, category: 'Donuts', type: 'Signature',      boxEligible: true, sortOrder: 90,  description: DESCRIPTION, sourceImages: ['mango1', 'mango2'] },
 
@@ -76,6 +82,17 @@ export const CATALOGUE = [
   { legacyId: 45, sku: 'DON-TIRAMISU-CREME',      slug: 'tiramisu-creme',      name: 'Tiramisu Creme',       price: 429, category: 'Donuts', type: 'Crafted Donuts', boxEligible: true, sortOrder: 170, description: DESCRIPTION, sourceImages: ['tiramisu1', 'tiramisu2', 'tiramisu3'] },
   { legacyId: 46, sku: 'DON-KINDER-CREAM',        slug: 'kinder-cream',        name: 'Kinder Cream',         price: 429, category: 'Donuts', type: 'Crafted Donuts', boxEligible: true, sortOrder: 180, description: DESCRIPTION, sourceImages: ['kinder1', 'kinder2', 'kinder3'] },
   { legacyId: 47, sku: 'DON-KITKAT-CRUNCH',       slug: 'kitkat-crunch',       name: 'KitKat Crunch',        price: 429, category: 'Donuts', type: 'Crafted Donuts', boxEligible: true, sortOrder: 190, description: DESCRIPTION, sourceImages: ['kitkat1', 'kitkat2', 'kitkat3'] },
+
+  // ---- Brownies ------------------------------------------------------------
+  // The fifth category, added after the original menu transcription. `BRW` extends the
+  // kickoff §2 prefix scheme (DON / CRO / SAN / DRK) rather than borrowing DON, because
+  // the prefix is what Nimbus POS maps against in Phase 2 and a brownie is not a donut.
+  // Not box-eligible: Build Your Box is donuts and croissants (plan §11), and nobody has
+  // asked for brownies in a box.
+  { legacyId: 49, sku: 'BRW-CHOCOLATE-BOUNTY',    slug: 'chocolate-bounty',    name: 'Chocolate Bounty',     price: 420, category: 'Brownies', type: 'Brownies', boxEligible: false, sortOrder: 10, description: DESCRIPTION, sourceImages: ['chocolateBounty1', 'chocolateBounty2'] },
+  { legacyId: 50, sku: 'BRW-PEANUT-BUTTER',       slug: 'peanut-butter',       name: 'Peanut Butter',        price: 399, category: 'Brownies', type: 'Brownies', boxEligible: false, sortOrder: 20, description: DESCRIPTION, sourceImages: ['peanutButter1', 'peanutButter2'] },
+  { legacyId: 51, sku: 'BRW-BROOKIE',             slug: 'brookie',             name: 'Brookie',              price: 399, category: 'Brownies', type: 'Brownies', boxEligible: false, sortOrder: 30, description: DESCRIPTION, sourceImages: ['brookie1', 'brookie2'] },
+  { legacyId: 52, sku: 'BRW-CLASSIC-FUDGE',       slug: 'classic-fudge',       name: 'Classic Fudge',        price: 370, category: 'Brownies', type: 'Brownies', boxEligible: false, sortOrder: 40, description: DESCRIPTION, sourceImages: ['classicFudge1', 'classicFudge2'] },
 
   // ---- Croissants / Fresh Bakes --------------------------------------------
   { legacyId: 18, sku: 'CRO-CHOCOLATE-CROISSANT',           slug: 'chocolate-croissant', name: 'Chocolate Croissant',     price: 379, category: 'Croissants', type: 'Fresh Bakes', boxEligible: true, sortOrder: 10, description: DESCRIPTION, sourceImages: ['chocolateCroissant1', 'chocolateCroissant2', 'chocolateCroissant3'] },
