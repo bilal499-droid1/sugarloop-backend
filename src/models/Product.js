@@ -5,7 +5,7 @@ import { formatPKR } from '../utils/money.js'
 const imageSchema = new mongoose.Schema(
   {
     url: { type: String, required: true, trim: true },
-    /** Cloudinary's handle for the asset — required to delete or transform it later. */
+    /** The object store's handle for the asset — the S3 key. Needed to delete it later. */
     publicId: { type: String, required: true, trim: true },
     alt: { type: String, trim: true, default: '' },
     order: { type: Number, default: 0 },

@@ -757,7 +757,7 @@ on the same box, using the **bike** profile, since riders are on motorbikes. If 
 unreachable the server falls back to straight-line rather than refusing orders, and flags
 those numbers as estimates so no invented ride time is ever shown.
 
-Sprint 2 and beyond: SMS fallback, the inbound webhook and auto-reply, Cloudinary uploads.
+Sprint 2 and beyond: SMS fallback, the inbound webhook and auto-reply.
 
 **Order notifications are wired, firing, and the send is written** — every event, every
 recipient, every template. `notification.service.js` calls `sendTemplate()` in
@@ -807,8 +807,13 @@ removing one would erase the evidence that a company ever asked.
   arrive that branch will accept an order at 2am and the kitchen will not be there to make
   it. The schema is per-branch, so correcting it is one value; the seed now warns about it
   by name on every run rather than leaving it to a code comment.
-- **Product images** — seeded empty. Blocked on moving Cloudinary to a client-owned
-  account; `itemData.js` keeps the frontend asset names so the mapping is not lost.
+- **Product images** — seeded empty. Not blocked on anybody: create the bucket, set
+  `S3_BUCKET` and `S3_REGION`, attach an instance role with `s3:PutObject`,
+  `s3:GetObject` and `s3:DeleteObject`, add the bucket CORS rule from `.env.example`,
+  then run `npm run images:upload`. Until that runs the storefront serves photography
+  from its own bundle, joined by `legacyId` — which means a product created through the
+  admin console can never have one, since it has no `legacyId`. `itemData.js` keeps the
+  frontend asset names so the mapping is not lost.
 - **Delivery coverage** — at 2 km the four branches cover ~48 km² of Islamabad. Not a
   gap: branches are independent by design and cover only their own radius, so an address
   no branch reaches is refused rather than stretched to. Listed here so the coverage is a

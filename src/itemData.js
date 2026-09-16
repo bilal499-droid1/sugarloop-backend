@@ -14,10 +14,10 @@
  *   is what a kitchen ticket prints and what Nimbus POS maps against in Phase 2; slug is
  *   the public URL (`/products/:slug`), which replaces the numeric frontend id.
  * - `sourceImages` holds the frontend's Vite asset identifiers. They are NOT usable by the
- *   backend — `Product.images` needs Cloudinary `{ url, publicId }` pairs, which is
- *   blocked on the account migration in plan §10. They are kept as plain strings so that
- *   when the images are uploaded, the product-to-image mapping does not have to be
- *   reconstructed by hand for every item.
+ *   backend — `Product.images` needs `{ url, publicId }` pairs pointing at the S3
+ *   bucket, which `npm run images:upload` writes by reading exactly these names out of
+ *   the frontend bundle. They are kept as plain strings so the product-to-image mapping
+ *   does not have to be reconstructed by hand for every item.
  * - `legacyId` is the frontend's numeric id and IS persisted (kickoff §2): the live site
  *   keys its localStorage carts by it, so without the mapping every open cart breaks on
  *   cutover. Nothing in the API identifies a product this way — that is `slug`.

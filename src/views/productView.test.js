@@ -40,7 +40,7 @@ test('emits the fields a storefront needs', () => {
 test('never leaks internals', async (t) => {
   const view = productView(product())
 
-  await t.test('no Cloudinary publicId — it is the argument to a destroy call', () => {
+  await t.test('no publicId — it is the argument to a delete call', () => {
     assert.equal(view.images[0].url, 'https://cdn/lotus1.webp')
     assert.equal(view.images[0].publicId, undefined)
     assert.ok(!JSON.stringify(view).includes('sugarloop/lotus1'))

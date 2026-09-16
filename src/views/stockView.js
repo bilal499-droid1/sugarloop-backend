@@ -3,7 +3,7 @@
  *
  * Reuses `productView` rather than re-listing product fields, so an item on this screen
  * carries the same shape it does on the public menu — and so the fields that view
- * deliberately withholds (Cloudinary handles, dormant FBR columns) stay withheld here
+ * deliberately withholds (object-store handles, dormant FBR columns) stay withheld here
  * too. A second hand-rolled product shape is a second place to leak from.
  */
 import { productView } from './productView.js'

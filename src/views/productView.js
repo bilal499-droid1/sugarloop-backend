@@ -3,8 +3,8 @@
  *
  * What this file deliberately does NOT emit, and why:
  *
- * - `images[].publicId` — Cloudinary's handle for the asset. It is the argument to a
- *   destroy call. Public pages need the URL, never the handle.
+ * - `images[].publicId` — the object store's handle for the asset, an S3 key. It is the
+ *   argument to a delete call. Public pages need the URL, never the handle.
  * - `pctCode`, `taxRatePercent`, `priceIncludesTax` — dormant FBR fields (design §9b).
  *   Publishing a tax rate of 0 invites a frontend to start doing tax arithmetic against
  *   a field we are not ready to stand behind.

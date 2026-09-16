@@ -121,9 +121,10 @@ const branches = [
  * silently — it is provenance for the image migration, not a field the Product document
  * has. `legacyId` IS persisted: the live site keys localStorage carts by it (kickoff §2).
  *
- * `images` stays empty until the Cloudinary account move (plan §10) — the schema requires
- * a `publicId` per image, so there is nothing honest to put there yet, and the frontend
- * already renders a neutral placeholder tile.
+ * `images` stays empty because the seed has no bytes to point at — the schema requires a
+ * `publicId` per image, so there is nothing honest to put there. `npm run images:upload`
+ * fills them from the frontend bundle once a bucket exists; until then the frontend
+ * renders a neutral placeholder tile.
  */
 const products = CATALOGUE.map(({ sourceImages: _sourceImages, price, ...product }) => ({
   ...product,
@@ -440,9 +441,10 @@ async function seed() {
       'kitchen will not be there to make them. One value per branch to correct.'
   )
   logger.warn(
-    'NO PRODUCT IMAGES: the catalogue seeds with an empty images array. Uploading them ' +
-      'is blocked on the client-owned Cloudinary account (plan §10); itemData.js keeps ' +
-      'the frontend asset names per product so the mapping is not lost.'
+    'NO PRODUCT IMAGES: the catalogue seeds with an empty images array. Run ' +
+      'npm run images:upload once S3_BUCKET and S3_REGION are set and the instance role ' +
+      'grants s3:PutObject/GetObject/DeleteObject; itemData.js keeps the frontend asset ' +
+      'names per product so the mapping is not lost.'
   )
 
   logger.info('Seed complete')
