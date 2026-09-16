@@ -105,3 +105,76 @@ test('an empty query never reaches the provider', { skip }, async () => {
   assert.equal(await geocodeAddress('   '), null)
   assert.equal(calls, 0)
 })
+
+/* -------------------------------------------------------------------------- */
+/* Match precision                                                             */
+/*                                                                             */
+/* The bug these cover: a customer 10.2 km outside the delivery area was told   */
+/* the nearest shop was 3.65 km away. Nominatim, asked with bounded=1, had      */
+/* answered a typed address with the centroid of the whole sector, and that     */
+/* centroid was priced as if it were their doorstep.                            */
+/* -------------------------------------------------------------------------- */
+
+/** A sector: what Nominatim actually returns for "H-13, Islamabad". ~4 km tall. */
+const SECTOR_CENTROID = {
+  lat: '33.6366772',
+  lon: '72.9754502',
+  display_name: 'ایچ-13, Islamabad',
+  addresstype: 'suburb',
+  type: 'suburb',
+  boundingbox: ['33.6166772', '33.6566772', '72.9554502', '72.9954502'],
+}
+
+/** A street inside that sector — small box, precise enough to deliver to. */
+const STREET = {
+  lat: '33.6553532',
+  lon: '72.9637411',
+  display_name: 'Street 4, G-13/1, Islamabad',
+  addresstype: 'road',
+  type: 'residential',
+  boundingbox: ['33.6528412', '33.6558412', '72.9627411', '72.9647411'],
+}
+
+test('a sector centroid is refused rather than priced as an address', { skip }, async () => {
+  stubFetch([SECTOR_CENTROID])
+
+  assert.equal(
+    await geocodeAddress('H-13, Islamabad'),
+    null,
+    'an area centroid must read as not-found, not as a doorstep'
+  )
+})
+
+test('a precise match behind a coarse one is preferred', { skip }, async () => {
+  // Nominatim ranks by prominence, not precision, so the sector can outrank the street.
+  stubFetch([SECTOR_CENTROID, STREET])
+
+  const result = await geocodeAddress('Street 4, G-13/1, Islamabad')
+
+  assert.equal(result.lat, 33.6553532)
+  assert.equal(result.lng, 72.9637411)
+})
+
+test('a result with no bounding box is judged on its type alone', { skip }, async () => {
+  stubFetch([{ lat: '33.5312498', lon: '73.1574172', display_name: 'Nadir Arcade' }])
+
+  const result = await geocodeAddress('Nadir Arcade, DHA Phase 2')
+
+  assert.equal(result.lat, 33.5312498, 'silence about the box is not evidence of a bad match')
+})
+
+test('a cache entry from the old rules is looked up again', { skip }, async () => {
+  stubFetch(ISLAMABAD)
+  await geocodeAddress('Nadir Arcade, DHA Phase 2')
+
+  // What every row written before the precision rules existed looks like.
+  await GeocodeCache.updateOne(
+    { key: cacheKey('Nadir Arcade, DHA Phase 2') },
+    { $set: { rulesRevision: 0 } }
+  )
+
+  const again = await geocodeAddress('Nadir Arcade, DHA Phase 2')
+
+  assert.equal(again.cached, false, 'a fix in the code must not be masked by the cache')
+  assert.equal(calls, 2)
+})

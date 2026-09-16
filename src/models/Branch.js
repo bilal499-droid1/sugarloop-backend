@@ -1,6 +1,8 @@
 import mongoose from 'mongoose'
 import {
   DEFAULT_DELIVERY_RADIUS_KM,
+  DEFAULT_MAX_DELIVERY_MINUTES,
+  DEFAULT_MAX_DELIVERY_ROAD_KM,
   DEFAULT_LAST_ORDER_BUFFER_MINUTES,
   FULFILMENT,
 } from '../config/constants.js'
@@ -50,6 +52,25 @@ const branchSchema = new mongoose.Schema(
 
     /** Confirmed at 2 km for every branch. Per-branch so it can be widened without a deploy. */
     deliveryRadiusKm: { type: Number, default: DEFAULT_DELIVERY_RADIUS_KM, min: 0 },
+
+    /**
+     * The delivery rule when ROUTER=osrm: a ride must be under BOTH.
+     *
+     * Two limits rather than one because each alone lets the wrong order through. Time
+     * alone would accept a 25 km motorway run that happens to be quick, which is a rider
+     * gone for the best part of an hour round trip. Distance alone would refuse a
+     * neighbouring sector that is three minutes away but sits across a boundary the road
+     * has to loop around — the Westridge case, where 3.65 km in a straight line is a
+     * 9.97 km ride but still only fifteen minutes.
+     *
+     * Time is the limit that reflects the product (these are fresh bakery items) and the
+     * one customers understand; the distance cap is a backstop on rider cost.
+     *
+     * Per branch and editable through the staff endpoint, because a shop on a main road
+     * covers ground in twenty minutes that a shop inside a housing scheme does not.
+     */
+    maxDeliveryMinutes: { type: Number, default: DEFAULT_MAX_DELIVERY_MINUTES, min: 0 },
+    maxDeliveryRoadKm: { type: Number, default: DEFAULT_MAX_DELIVERY_ROAD_KM, min: 0 },
 
     /**
      * Wall-clock times in BUSINESS_TIMEZONE, and the window CROSSES MIDNIGHT

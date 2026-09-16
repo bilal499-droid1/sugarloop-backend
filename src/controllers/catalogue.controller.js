@@ -40,6 +40,8 @@ export async function resolveBranch(req, res) {
   return ok(res, {
     branch: branchView(branch),
     distanceKm: branch.distanceKm,
+    roadKm: branch.roadKm ?? null,
+    rideMinutes: branch.rideMinutes ?? null,
     /** Echoed so the client can show what the typed address was understood to mean, and
      *  can reuse the coordinates at checkout instead of paying for a second lookup. */
     resolved: {

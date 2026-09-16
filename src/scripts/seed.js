@@ -97,6 +97,12 @@ const branches = [
   // certainly does not keep. See the BRANCH HOURS warning the seed prints.
   hours: { open: '11:00', close: '03:00' },
   deliveryRadiusKm: 2,
+  // The rule that replaces the radius when ROUTER=osrm: 5 km, the ceiling the client set
+  // on how far a rider is sent. ROAD km, not straight-line, so it means five kilometres
+  // of actual riding. No time cap — distance is the rule, and it is the one the refusal
+  // message states.
+  maxDeliveryMinutes: null,
+  maxDeliveryRoadKm: 5,
   lastOrderBufferMinutes: 30,
   fulfilment: ['delivery', 'pickup'],
 }))

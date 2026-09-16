@@ -715,6 +715,48 @@ their address cannot be found and pushed to the location button instead. Switchi
 Google is two lines in `.env` — see `GEOCODER` there. Lookups are cached for 90 days, so
 Google's 10,000 free/month is far more than this shop will use.
 
+**Delivery range is straight-line until an OSRM server exists.** `ROUTER` defaults to
+`straightline`, which measures great-circle distance against each branch's
+`deliveryRadiusKm`. That understates real journeys, sometimes wildly: a Westridge address
+3.65 km from NUST H-12 as the crow flies is a **9.97 km, 15-minute ride**, because Nur
+Khan airbase forces the road all the way around. Measured across this city the detour
+factor runs from 1.2x on open roads to 2.7x here, so no single radius — and no fixed
+multiplier on a straight line — can mean the same thing in both places.
+
+Setting `ROUTER=osrm` switches the rule to **real road distance**, measured by a router
+rather than estimated from a straight line, and stated to the customer in the same terms
+it is enforced in ("9.97 km away by road — we deliver up to 5 km"). Ride time comes back
+in the same response and is shown alongside, because it costs nothing extra and reads as
+more reassuring than a distance to someone waiting — but it does not decide anything.
+
+| Field | Meaning |
+| --- | --- |
+| `maxDeliveryRoadKm` | **the rule** — road kilometres, seeded at 5, editable per branch |
+| `maxDeliveryMinutes` | optional ride-time cap, `null` (off) by default |
+
+The time cap exists as a per-branch switch and is deliberately off. A limit that the
+refusal message does not state must not be allowed to cause one — and at 5 km of road
+nothing takes twenty minutes, so it never bound anyway.
+
+Both are editable through `PATCH /staff/branches/:id` without a deploy, because a shop on
+a main road covers ground that a shop inside a housing scheme does not.
+
+**5 km of road is tighter than it sounds.** Measured from these branches the detour factor
+runs 1.2x to 2.7x, so a 5 km ride is roughly 2-3 km as the crow flies — a smaller area
+than the old 2 km straight-line radius in open parts of DHA, and a larger one where the
+road has to loop.
+
+`deliveryRadiusKm` is still used, as the `$geoNear` pre-filter and as the rule when no
+router is configured — a road can never be shorter than a straight line, so the cheap
+indexed query can safely shortlist branches before the router is asked about any of them.
+One request covers every candidate branch, and answers are cached 30 days per rounded
+origin and branch, so routing costs the checkout path nothing on a repeat.
+
+Setup is in `.env.example` under `ROUTER` — a Docker container and a Pakistan OSM extract
+on the same box, using the **bike** profile, since riders are on motorbikes. If OSRM is
+unreachable the server falls back to straight-line rather than refusing orders, and flags
+those numbers as estimates so no invented ride time is ever shown.
+
 Sprint 2 and beyond: SMS fallback, the inbound webhook and auto-reply, Cloudinary uploads.
 
 **Order notifications are wired, firing, and the send is written** — every event, every

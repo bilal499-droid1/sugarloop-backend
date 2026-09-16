@@ -153,6 +153,30 @@ const schema = z.object({
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 
   /**
+   * How delivery distance is measured.
+   *
+   * `straightline` is the original behaviour: great-circle distance from `$geoNear`,
+   * compared against a branch's `deliveryRadiusKm`. Cheap, needs nothing, and wrong in a
+   * way customers notice — the detour factor around Islamabad/Rawalpindi ranges from
+   * 1.2x on open roads to 2.7x where Nur Khan airbase forces a route around it, so a
+   * single radius cannot mean the same thing in both places.
+   *
+   * `osrm` asks a real router for road distance AND ride time, and the delivery rule is
+   * then stated in the terms a customer and a rider both understand. Self-hosted, so
+   * there is no key and no per-request cost.
+   */
+  ROUTER: z.enum(['straightline', 'osrm']).default('straightline'),
+
+  /**
+   * Base URL of the OSRM server. Required when ROUTER=osrm, checked at boot.
+   *
+   * Defaults to nothing rather than to the public demo server on purpose: OSRM's demo
+   * host is explicitly not for production use, and silently depending on it would put a
+   * third party's unmetered goodwill in the checkout path.
+   */
+  OSRM_URL: z.string().url().optional(),
+
+  /**
    * How outbound email leaves the server. See services/email.service.js.
    *
    * `log` prints the message and sends nothing — refused at boot in production, where it

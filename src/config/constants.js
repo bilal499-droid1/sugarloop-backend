@@ -16,6 +16,19 @@ export const DELIVERY_FEE = 10_000
 /** Delivery radius from a branch. Overridable per branch on the Branch document. */
 export const DEFAULT_DELIVERY_RADIUS_KM = 2
 
+/**
+ * The delivery rule when ROUTER=osrm.
+ *
+ * Distance is the rule the shop states to customers ("we deliver up to 5 km") and the
+ * only one that refuses anybody. ROAD kilometres, not straight-line: 5 km of riding,
+ * which around Islamabad is roughly 2-3 km as the crow flies.
+ *
+ * The time cap is null — OFF — and exists as a per-branch switch for a shop that later
+ * needs one. A limit that is not stated in the refusal must not be allowed to cause one.
+ */
+export const DEFAULT_MAX_DELIVERY_MINUTES = null
+export const DEFAULT_MAX_DELIVERY_ROAD_KM = 5
+
 /** Stop accepting orders this many minutes before a branch closes. */
 export const DEFAULT_LAST_ORDER_BUFFER_MINUTES = 30
 

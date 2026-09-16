@@ -4,6 +4,7 @@ import { logger } from './config/logger.js'
 import { connectDatabase, disconnectDatabase } from './config/db.js'
 import { assertTransportIsProductionSafe } from './services/otpDelivery.service.js'
 import { assertGeocoderIsConfigured } from './services/geocoding.service.js'
+import { assertRouterIsConfigured } from './services/routing.service.js'
 import { assertEmailTransportIsProductionSafe } from './services/email.service.js'
 import { assertNotifyTransportIsProductionSafe } from './services/notification.service.js'
 import { disconnectRedis } from './config/redis.js'
@@ -18,6 +19,7 @@ async function start() {
   // Likewise GEOCODER=google with no key, which would surface as every delivery address
   // being rejected at checkout rather than as the configuration error it is.
   assertGeocoderIsConfigured()
+  assertRouterIsConfigured()
 
   // And the development email transport in production, which would drop every corporate
   // enquiry while the form kept telling customers someone would be in touch.

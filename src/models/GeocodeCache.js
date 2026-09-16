@@ -39,6 +39,16 @@ const geocodeCacheSchema = new mongoose.Schema(
     notFound: { type: Boolean, default: false },
 
     /**
+     * Which generation of the match-precision rules wrote this entry.
+     *
+     * Entries written before those rules existed default to 0 and are re-fetched on
+     * first use. Without this the ninety-day cache would keep serving the sector
+     * centroids the rules now reject — the bug would look fixed in the code and stay
+     * live for every address a customer had already tried.
+     */
+    rulesRevision: { type: Number, default: 0 },
+
+    /**
      * Cache entries expire rather than living forever — new buildings get mapped, and
      * roads get renamed. Ninety days is long enough that repeat customers stay free and
      * short enough that the data does not silently rot.

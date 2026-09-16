@@ -44,6 +44,9 @@ export const createBranchSchema = z.object({
   }),
 
   deliveryRadiusKm: z.coerce.number().min(0).max(50).optional(),
+  // The ROUTER=osrm rule: a delivery must be under both. See Branch.maxDeliveryMinutes.
+  maxDeliveryMinutes: z.coerce.number().min(0).max(180).optional(),
+  maxDeliveryRoadKm: z.coerce.number().min(0).max(100).optional(),
   hours: z.object({ open: timeOfDay, close: timeOfDay }).optional(),
   lastOrderBufferMinutes: z.coerce.number().int().min(0).max(240).optional(),
   fulfilment: z

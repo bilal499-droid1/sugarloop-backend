@@ -55,6 +55,11 @@ export function quoteView(quote) {
       phone: branch.phone,
       // Present for delivery, absent for pickup — the customer came to the shop.
       ...(branch.distanceKm !== undefined ? { distanceKm: branch.distanceKm } : {}),
+      // Road distance and ride time, present only when a router answered. The straight
+      // line above is kept beside them because it is what the delivery radius still
+      // means when ROUTER=straightline.
+      ...(branch.roadKm !== undefined ? { roadKm: branch.roadKm } : {}),
+      ...(branch.rideMinutes !== undefined ? { rideMinutes: branch.rideMinutes } : {}),
     },
 
     items: quote.items.map(lineView),
