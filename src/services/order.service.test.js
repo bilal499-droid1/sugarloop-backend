@@ -172,7 +172,8 @@ test('order service', { skip, concurrency: false }, async (t) => {
   })
 
   await t.test('the branch closing between quote and order is rejected', async () => {
-    const afterCutoff = new Date('2026-08-11T02:31:00+05:00')
+    // A pickup order, and collection runs until the 03:00 close.
+    const afterCutoff = new Date('2026-08-11T03:01:00+05:00')
 
     await assert.rejects(
       () => orderService.create(request(), CONTEXT, { now: afterCutoff }),
@@ -291,17 +292,6 @@ test('order service', { skip, concurrency: false }, async (t) => {
       () => orderService.getByNumber(order.orderNumber, {}),
       (err) => err.statusCode === 404
     )
-  })
-
-  await t.test('an order places without a phone, now that checkout stops asking', async () => {
-    const order = await orderService.create(
-      request({ contact: { name: 'No Number', email: CUSTOMER_EMAIL } }),
-      CONTEXT,
-      { now: NOW }
-    )
-
-    assert.ok(order.orderNumber)
-    assert.ok(!order.contact.phone, 'nothing invented to fill the gap')
   })
 
   await t.test('order numbers are unique at the database level too', async () => {

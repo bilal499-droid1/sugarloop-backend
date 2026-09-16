@@ -34,16 +34,11 @@ const email = z.string().trim().toLowerCase().email('Enter a valid email address
 const contact = z.object({
   name: z.string().trim().min(2, 'Name is required').max(120),
   /**
-   * Optional, and that is a decision worth being explicit about.
-   *
-   * Checkout no longer asks for a number at all — the field is parked in the storefront's
-   * CheckoutPage. So a Cash-on-Delivery order can now arrive with no way to reach the
-   * customer: nobody has paid, a rider is going to a real address, and the branch has
-   * only an email address to chase. The rule itself is unchanged and still applies to any
-   * number that IS sent, so restoring this to required is deleting `.optional()` here and
-   * uncommenting the field in the storefront.
+   * Required. This is Cash on Delivery: nobody has paid, a rider is going to a real
+   * address, and the number is how the branch confirms the order and the rider gets
+   * through the gate. An email address alone is not something anyone can ring.
    */
-  phone: phone.optional(),
+  phone,
   email,
 })
 
@@ -120,5 +115,5 @@ export const orderNumberParamSchema = z.object({
 })
 
 /** Looking up your own order while there is no customer login. See order.service.js.
- *  Keyed on email since checkout stopped collecting a phone number. */
+ *  Keyed on email, the address the customer verified at checkout. */
 export const getOrderQuerySchema = z.object({ email })
