@@ -314,6 +314,32 @@ test('the ordering window is enforced server-side', async (t) => {
   })
 })
 
+test('delivery stops 30 minutes before closing, collection runs until close', async (t) => {
+  const items = [line('KitKat Crunch', 2)]
+  const at = (hhmm) => new Date(`2026-08-10T${hhmm}:00+05:00`)
+
+  await t.test('02:45 — delivery refused, and told collecting still works', () => {
+    assert.throws(
+      () => price(items, { now: at('02:45'), fulfilment: 'delivery' }),
+      (err) =>
+        err.code === 'BRANCH_NOT_ACCEPTING_ORDERS' &&
+        err.details.canStillCollect === true &&
+        /still collect/.test(err.message)
+    )
+  })
+
+  await t.test('02:45 — pickup accepted', () => {
+    assert.equal(price(items, { now: at('02:45'), fulfilment: 'pickup' }).fulfilment, 'pickup')
+  })
+
+  await t.test('03:00 — pickup refused too, the shop has shut', () => {
+    assert.throws(
+      () => price(items, { now: at('03:00'), fulfilment: 'pickup' }),
+      (err) => err.code === 'BRANCH_NOT_ACCEPTING_ORDERS' && err.details.canStillCollect === false
+    )
+  })
+})
+
 test('a manager pause blocks checkout even mid-service', () => {
   assert.throws(
     () => price([line('KitKat Crunch', 2)], { branch: branch({ acceptingOrders: false }) }),

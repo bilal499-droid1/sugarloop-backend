@@ -67,6 +67,8 @@ const branches = [
     address: 'H32V+J2F, DHA Phase 1, Islamabad',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.0925354, 33.5515545] },
+    hours: { open: '16:00', close: '00:00' },
+    fulfilment: ['pickup'],
   },
   {
     code: 'DHA2',
@@ -74,6 +76,9 @@ const branches = [
     address: '1st Floor, Nadir Arcade, Sector E, DHA Phase II, Islamabad',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.1574172, 33.5312498] },
+    hours: { open: '16:00', close: '00:00' },
+    // The only branch that delivers, for now.
+    fulfilment: ['delivery', 'pickup'],
   },
   {
     // Bahria Town Phase 4, NOT DHA Phase 4 — Marina Commercial and Corniche Road are
@@ -83,6 +88,8 @@ const branches = [
     address: 'Marina Commercial, Corniche Road, near WeDrink, Bahria Town Phase 4, Islamabad 46220',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.1233008, 33.5465939] },
+    hours: { open: '16:00', close: '00:00' },
+    fulfilment: ['pickup'],
   },
   {
     // Not in DHA, and 13-19 km from the other three. Kept in the same list because it is
@@ -92,16 +99,25 @@ const branches = [
     address: 'SINES / NSTP Building, NUST, Khyber Road, H-12, Islamabad 44000',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [72.9974445, 33.6461047] },
+    // Daytime, unlike the rest — it trades inside a university building.
+    hours: { open: '10:00', close: '18:00' },
+    fulfilment: ['pickup'],
   },
 ].map((branch) => ({
   ...branch,
   phone: SHARED_PHONE,
-  // Same hours and cutoff for all four, on the client's instruction for now.
-  // ⚠️ UNCONFIRMED for NUST H-12 — it trades inside a university building, which is
-  // unlikely to be open until 03:00. The schema is per-branch, so correcting it is this
-  // one value; until someone does, the server will enforce a window that branch almost
-  // certainly does not keep. See the BRANCH HOURS warning the seed prints.
-  hours: { open: '11:00', close: '03:00' },
+  /*
+   * Hours and fulfilment are per branch, above, on the client's instruction of 2026-09-17:
+   *   NUST              10:00-18:00
+   *   DHA2, DHA1, BAH4  16:00-00:00
+   * Collection runs until closing; delivery stops 30 minutes before (lastOrderBufferMinutes
+   * only applies to delivery — see Branch.lastOrderBufferFor).
+   * Delivery runs from DHA2 only for now; the other three are collection only. Adding
+   * `'delivery'` back to a branch's `fulfilment` is all it takes to open it up.
+   *
+   * ⚠️ The seed OVERWRITES hours and fulfilment on every run, including any a manager
+   * changed through the staff console since.
+   */
   deliveryRadiusKm: 2,
   // The rule that replaces the radius when ROUTER=osrm: 5 km, the ceiling the client set
   // on how far a rider is sent. ROAD km, not straight-line, so it means five kilometres
@@ -109,8 +125,8 @@ const branches = [
   // message states.
   maxDeliveryMinutes: null,
   maxDeliveryRoadKm: 5,
+  // Delivery only: the last delivery order is half an hour before close. Collection runs to close.
   lastOrderBufferMinutes: 30,
-  fulfilment: ['delivery', 'pickup'],
 }))
 
 /**
@@ -424,9 +440,9 @@ async function seed() {
   // is a known quantity rather than a surprise, and because it is one field per branch to
   // change if the shop ever wants to reach further.
   logger.info(
-    'COVERAGE: each branch delivers within its own 2 km radius, independently — ' +
-      'about 48 km² across the four. Addresses outside every radius are refused with ' +
-      '"we do not deliver to your area", which is the intended behaviour.'
+    'COVERAGE: only DHA2 delivers, so an address outside its range is refused with ' +
+      '"we do not deliver to your area" — including ones next to DHA1, BAH4 or NUST, ' +
+      'which are collection only for now.'
   )
   logger.warn(
     'BRANCH PHONE: all four carry the storefront line +92 370 4193372, as instructed. ' +
@@ -434,11 +450,9 @@ async function seed() {
       '"call us on <branch number>" names a number the shop actually answers. Per-branch ' +
       'numbers remain a later refinement, not a blocker.'
   )
-  logger.warn(
-    'BRANCH HOURS: NUST H-12 is seeded with the shared 11:00-03:00 window, UNCONFIRMED. ' +
-      'It trades inside a university building and is unlikely to keep those hours, so ' +
-      'until the real ones are confirmed that branch will accept orders at 2am and the ' +
-      'kitchen will not be there to make them. One value per branch to correct.'
+  logger.info(
+    'BRANCH HOURS: NUST 10:00-18:00; DHA2, DHA1 and BAH4 16:00-00:00. Collection until ' +
+      'close; delivery stops 30 minutes earlier, and runs from DHA2 only for now.'
   )
   logger.warn(
     'NO PRODUCT IMAGES: the catalogue seeds with an empty images array. Run ' +

@@ -143,12 +143,38 @@ branchSchema.methods.isOpenAt = function isOpenAtMethod(date = new Date(), buffe
 }
 
 /**
- * Open, far enough from closing that the kitchen can still cook it (11:00–02:30), and not
- * paused by the manager mid-rush. This is the check the pricing engine calls.
+ * How long before closing a fulfilment mode stops taking orders.
+ *
+ * Only delivery stops early: a rider has to get there and back before the shop shuts. A
+ * customer collecting walks in, so pickup runs right up to closing time (client's
+ * instruction, 2026-09-17).
  */
-branchSchema.methods.isAcceptingOrdersAt = function isAcceptingOrdersAtMethod(date = new Date()) {
+branchSchema.methods.lastOrderBufferFor = function lastOrderBufferFor(fulfilment) {
+  return fulfilment === FULFILMENT.PICKUP ? 0 : this.lastOrderBufferMinutes
+}
+
+/**
+ * The buffer for `fulfilment`, or — when none is named — the shortest across the modes
+ * this branch offers, i.e. "can this branch take ANY order right now". That is what the
+ * branch picker's "Open now" means: a shop that has stopped delivering at 23:30 is still
+ * taking collection orders until midnight.
+ */
+function bufferFor(branch, fulfilment) {
+  if (fulfilment) return branch.lastOrderBufferFor(fulfilment)
+  return Math.min(...branch.fulfilment.map((mode) => branch.lastOrderBufferFor(mode)))
+}
+
+/**
+ * Open, far enough from closing for this fulfilment mode (delivery stops
+ * `lastOrderBufferMinutes` early, pickup does not), and not paused by the manager
+ * mid-rush. The pricing engine calls it with the order's fulfilment.
+ */
+branchSchema.methods.isAcceptingOrdersAt = function isAcceptingOrdersAtMethod(
+  date = new Date(),
+  fulfilment = undefined
+) {
   if (!this.acceptingOrders) return false
-  return this.isOpenAt(date, this.lastOrderBufferMinutes)
+  return this.isOpenAt(date, bufferFor(this, fulfilment))
 }
 
 /** The next instant this branch opens — what a "Closed, opens at 11am" rejection quotes. */
@@ -157,14 +183,17 @@ branchSchema.methods.nextOpeningAt = function nextOpeningAtMethod(date = new Dat
 }
 
 /** Minutes until the last-order cutoff, or null if orders are not being taken. */
-branchSchema.methods.minutesUntilLastOrder = function minutesUntilLastOrderMethod(date = new Date()) {
+branchSchema.methods.minutesUntilLastOrder = function minutesUntilLastOrderMethod(
+  date = new Date(),
+  fulfilment = undefined
+) {
   if (!this.isActive || !this.acceptingOrders) return null
 
   return minutesUntilLastOrder({
     open: this.hours.open,
     close: this.hours.close,
     at: date,
-    bufferMinutes: this.lastOrderBufferMinutes,
+    bufferMinutes: bufferFor(this, fulfilment),
   })
 }
 

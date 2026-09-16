@@ -27,11 +27,26 @@ const pkt = (hhmm) => new Date(`2026-08-10T${hhmm}:00+05:00`)
 test('a trading branch follows the window', () => {
   const dha = branch()
 
-  assert.equal(dha.isAcceptingOrdersAt(pkt('14:00')), true)
-  assert.equal(dha.isAcceptingOrdersAt(pkt('02:29')), true)
-  assert.equal(dha.isAcceptingOrdersAt(pkt('02:31')), false, 'past the 02:30 cutoff')
-  assert.equal(dha.isOpenAt(pkt('02:31')), true, 'trading, just not taking new orders')
-  assert.equal(dha.isAcceptingOrdersAt(pkt('09:00')), false)
+  assert.equal(dha.isAcceptingOrdersAt(pkt('14:00'), 'delivery'), true)
+  assert.equal(dha.isAcceptingOrdersAt(pkt('02:29'), 'delivery'), true)
+  assert.equal(dha.isAcceptingOrdersAt(pkt('02:31'), 'delivery'), false, 'past the 02:30 cutoff')
+  assert.equal(dha.isOpenAt(pkt('02:31')), true, 'trading, just not taking new deliveries')
+  assert.equal(dha.isAcceptingOrdersAt(pkt('09:00'), 'delivery'), false)
+})
+
+test('only delivery stops early — collection runs until closing', () => {
+  const dha = branch()
+
+  assert.equal(dha.isAcceptingOrdersAt(pkt('02:45'), 'pickup'), true)
+  assert.equal(dha.isAcceptingOrdersAt(pkt('03:00'), 'pickup'), false)
+  assert.equal(dha.minutesUntilLastOrder(pkt('02:00'), 'delivery'), 30)
+  assert.equal(dha.minutesUntilLastOrder(pkt('02:00'), 'pickup'), 60)
+
+  // No mode named: can it take ANY order? Yes while collection is open…
+  assert.equal(dha.isAcceptingOrdersAt(pkt('02:45')), true)
+  // …but a delivery-only branch stops with its deliveries.
+  const deliveryOnly = branch({ fulfilment: ['delivery'] })
+  assert.equal(deliveryOnly.isAcceptingOrdersAt(pkt('02:45')), false)
 })
 
 test('acceptingOrders is the manager kill switch, independent of the clock', () => {
@@ -59,8 +74,8 @@ test('the buffer comes from the document, not a constant', () => {
   assert.equal(noBuffer.isAcceptingOrdersAt(pkt('03:00')), false)
 
   const longBuffer = branch({ lastOrderBufferMinutes: 90 })
-  assert.equal(longBuffer.isAcceptingOrdersAt(pkt('01:29')), true)
-  assert.equal(longBuffer.isAcceptingOrdersAt(pkt('01:31')), false)
+  assert.equal(longBuffer.isAcceptingOrdersAt(pkt('01:29'), 'delivery'), true)
+  assert.equal(longBuffer.isAcceptingOrdersAt(pkt('01:31'), 'delivery'), false)
 })
 
 test('nextOpeningAt is quoted back in the closed-hours rejection', () => {
@@ -73,6 +88,6 @@ test('nextOpeningAt is quoted back in the closed-hours rejection', () => {
 test('minutesUntilLastOrder feeds the checkout countdown', () => {
   const dha = branch()
 
-  assert.equal(dha.minutesUntilLastOrder(pkt('02:00')), 30)
-  assert.equal(dha.minutesUntilLastOrder(pkt('02:30')), null)
+  assert.equal(dha.minutesUntilLastOrder(pkt('02:00'), 'delivery'), 30)
+  assert.equal(dha.minutesUntilLastOrder(pkt('02:30'), 'delivery'), null)
 })

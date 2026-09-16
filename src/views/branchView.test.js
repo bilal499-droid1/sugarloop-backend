@@ -35,17 +35,18 @@ test('the open/closed verdict is computed server-side', async (t) => {
 
     assert.equal(view.isOpenNow, true)
     assert.equal(view.isAcceptingOrders, true)
-    assert.equal(view.minutesUntilLastOrder, 750)
+    assert.equal(view.isAcceptingDelivery, true)
+    // Collection runs to 03:00, so the countdown for the branch as a whole is to closing.
+    assert.equal(view.minutesUntilLastOrder, 780)
   })
 
-  await t.test('past the cutoff but still trading', () => {
+  await t.test('past the delivery cutoff but still taking collection orders', () => {
     const view = branchView(branch(), { at: pkt('02:31') })
 
-    // The distinction the checkout button depends on: staff are still working existing
-    // orders, but the kitchen has stopped accepting new ones.
     assert.equal(view.isOpenNow, true)
-    assert.equal(view.isAcceptingOrders, false)
-    assert.equal(view.minutesUntilLastOrder, null)
+    assert.equal(view.isAcceptingOrders, true)
+    assert.equal(view.isAcceptingDelivery, false)
+    assert.equal(view.minutesUntilLastOrder, 29)
   })
 
   await t.test('shut', () => {

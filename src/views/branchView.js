@@ -18,6 +18,8 @@ export function branchView(branch, { at = new Date() } = {}) {
 
   const isOpenNow = branch.isOpenAt(at)
   const isAcceptingOrders = branch.isAcceptingOrdersAt(at)
+  const isAcceptingDelivery =
+    branch.fulfilment.includes('delivery') && branch.isAcceptingOrdersAt(at, 'delivery')
 
   return {
     id: String(branch._id),
@@ -43,7 +45,13 @@ export function branchView(branch, { at = new Date() } = {}) {
      */
     isAcceptingOrders,
 
-    /** Drives the "last orders in X minutes" countdown. Null when not taking orders. */
+    /**
+     * The same verdict for delivery alone, which stops lastOrderBufferMinutes before closing
+     * while collection runs to the end. False at a branch that does not deliver.
+     */
+    isAcceptingDelivery,
+
+    /** Drives the "last orders in X minutes" countdown, for whichever mode closes last. Null when not taking orders. */
     minutesUntilLastOrder: branch.minutesUntilLastOrder(at),
 
     /** What a "Closed — opens at 11am" message quotes. Always a real future instant. */

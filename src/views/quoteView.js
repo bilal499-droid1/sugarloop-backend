@@ -79,6 +79,6 @@ export function quoteView(quote) {
      * Minutes left before this branch stops taking orders, so the cart can count down
      * rather than reject someone at 02:31 without warning (design §5).
      */
-    minutesUntilLastOrder: branch.minutesUntilLastOrder(quote.pricedAt),
+    minutesUntilLastOrder: branch.minutesUntilLastOrder(quote.pricedAt, quote.fulfilment),
   }
 }

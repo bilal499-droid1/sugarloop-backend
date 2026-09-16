@@ -89,21 +89,31 @@ function assertBranchCanAccept(branch, fulfilment, now) {
     )
   }
 
-  if (branch.isAcceptingOrdersAt(now)) return
+  if (branch.isAcceptingOrdersAt(now, fulfilment)) return
 
-  // Separate the two closed cases: "we shut at 3am, come back at 11" is a different
-  // message from "we are open but the kitchen has stopped taking orders".
+  // Separate the two closed cases: "we shut at midnight, come back at 4" is a different
+  // message from "we are open but have stopped taking orders". And delivery stops before
+  // collection does, so a late delivery is told collecting still works.
   const isTrading = branch.isOpenAt(now)
+  const canStillCollect =
+    isTrading &&
+    fulfilment === FULFILMENT.DELIVERY &&
+    branch.fulfilment.includes(FULFILMENT.PICKUP) &&
+    branch.isAcceptingOrdersAt(now, FULFILMENT.PICKUP)
 
   throw new ApiError(
     409,
     'BRANCH_NOT_ACCEPTING_ORDERS',
-    isTrading
-      ? `${branch.name} has stopped taking orders for tonight`
-      : `${branch.name} is closed`,
+    canStillCollect
+      ? `${branch.name} has stopped delivering for today — you can still collect your order until closing`
+      : isTrading
+        ? `${branch.name} has stopped taking orders for today`
+        : `${branch.name} is closed`,
     {
       branchCode: branch.code,
       isOpenNow: isTrading,
+      /** Delivery has stopped but collection has not — the storefront offers the switch. */
+      canStillCollect,
       opensAt: branch.nextOpeningAt(now),
       hours: { open: branch.hours.open, close: branch.hours.close },
     }
