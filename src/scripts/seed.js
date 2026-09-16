@@ -136,9 +136,11 @@ const products = CATALOGUE.map(({ sourceImages: _sourceImages, price, ...product
 // Was 43 items / Rs 18,195 for the original transcription. Added since: the Blueberry
 // donut (Rs 299) and the four brownies (Rs 420 + 399 + 399 + 370 = Rs 1,588). Both are
 // genuine menu additions, so the expectations move with them rather than the guard being
-// relaxed — it still catches the typo it was written for.
-const EXPECTED_CATALOGUE_COUNT = 48
-const EXPECTED_PRICE_SUM = 2_008_200
+// relaxed — it still catches the typo it was written for. Removed since: Brownie Filled
+// (Rs 299) and Snickers (Rs 429), commented out in itemData.js until the client supplies
+// their description copy, which is why 48 / Rs 20,082 became 46 / Rs 19,354.
+const EXPECTED_CATALOGUE_COUNT = 46
+const EXPECTED_PRICE_SUM = 1_935_400
 
 function assertCatalogueIntegrity() {
   const sum = products.reduce((total, product) => total + product.price, 0)
