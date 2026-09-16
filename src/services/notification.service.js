@@ -58,6 +58,20 @@ export const TEMPLATES = Object.freeze({
    * indistinguishable from a duplicate, which is exactly the wrong signal for a chase.
    */
   ORDER_UNACKNOWLEDGED: 'sugarloop_order_unacknowledged',
+
+  /**
+   * ⚠️ A NINTH template, also outside the original seven, and the only customer-facing
+   * one on this list that apologises. Needs its own Meta approval.
+   *
+   * It cannot reuse `sugarloop_order_completed` or any other status template: this
+   * message has to say the order is not coming, that nothing is owed, and which number
+   * to call to have it made now. Nothing approved says any of that.
+   *
+   * Most orders will never reach a phone anyway — checkout collects an email, and
+   * `contact.phone` is null on new orders — so `orderExpiry.service.js` sends the email
+   * regardless and treats this as the extra reach when a number happens to be on file.
+   */
+  ORDER_EXPIRED: 'sugarloop_order_expired',
 })
 
 /**
@@ -70,6 +84,10 @@ export const TEMPLATES = Object.freeze({
  * `failed` is silent too: it is the one status that needs a human explaining what
  * happened and what the customer gets instead, and the fail-reason form already prompts
  * the branch to make that call.
+ *
+ * The exception is a `failed` the system caused rather than a person — the
+ * unacknowledged sweep — where there is no human to do the explaining and silence is
+ * precisely the defect. `notifyOrderExpired` handles that one directly.
  */
 const STATUS_TEMPLATES = Object.freeze({
   [ORDER_STATUS.OUT_FOR_DELIVERY]: TEMPLATES.OUT_FOR_DELIVERY,
@@ -277,6 +295,37 @@ export async function notifyOrderUnacknowledged(
         branch?.name ?? '',
         String(waitedMinutes),
         formatPKR(order.totals.grandTotal),
+        branchPhone(branch),
+      ],
+    },
+    options
+  )
+}
+
+/**
+ * The shop never acknowledged an order and the system has failed it.
+ *
+ * The customer is owed an apology and a way to still get their donuts. This sends only
+ * when a phone number is on file, which on a new order it is not — checkout verifies an
+ * email now — so the email in `orderExpiry.service.js` is the channel that actually
+ * reaches them, and this is the extra reach when an older order carries a number.
+ *
+ * The branch is told nothing here on purpose. The order reappears on their board as
+ * failed, with the reason, within one 15-second poll, and the two chases they already
+ * ignored said everything a third message would. A staff template for this would be a
+ * tenth Meta approval to tell people what their own screen is showing them.
+ */
+export async function notifyOrderExpired({ order, branch }, options) {
+  if (!order.contact?.phone) return
+
+  await notify(
+    {
+      to: order.contact.phone,
+      template: TEMPLATES.ORDER_EXPIRED,
+      params: [
+        order.contact.name ?? '',
+        order.orderNumber,
+        branch?.name ?? '',
         branchPhone(branch),
       ],
     },

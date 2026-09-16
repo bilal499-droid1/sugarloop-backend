@@ -253,6 +253,45 @@ export function nextOpeningAt({ open, at = new Date(), timeZone = BUSINESS_TIMEZ
 }
 
 /**
+ * The next instant this branch stops trading, strictly after `at`, or `null` for a
+ * branch that never closes.
+ *
+ * The mirror of `nextOpeningAt`, and it exists for the same reason the unacknowledged
+ * sweep exists: an order placed at 02:55 against an 03:00 close must not be left on a
+ * 30-minute fuse that burns down at 03:25, when the shop is dark and nobody could have
+ * confirmed it. Whichever comes first — the fuse or closing time — is when the customer
+ * deserves to hear back.
+ *
+ * `close === open` is a 24-hour window, the same reading `straighten` takes, so there is
+ * no closing instant to return.
+ */
+export function closingAt({ open, close, at = new Date(), timeZone = BUSINESS_TIMEZONE } = {}) {
+  const openMinutes = parseTimeOfDay(open)
+  const closeMinutes = parseTimeOfDay(close)
+
+  if (closeMinutes === openMinutes) return null
+
+  const { year, month, day } = zonedParts(at, timeZone)
+  const wallClock = { hour: Math.floor(closeMinutes / 60), minute: closeMinutes % 60 }
+
+  const todaysClose = instantFromZonedWallClock({ year, month, day, ...wallClock }, timeZone)
+
+  if (todaysClose.getTime() > at.getTime()) return todaysClose
+
+  // Past today's close — step a day forward in wall-clock terms. Adding 24h to the
+  // instant would be wrong across a DST change; re-reading the calendar date is not.
+  const tomorrow = zonedParts(
+    new Date(todaysClose.getTime() + MINUTES_PER_DAY * MS_PER_MINUTE),
+    timeZone
+  )
+
+  return instantFromZonedWallClock(
+    { year: tomorrow.year, month: tomorrow.month, day: tomorrow.day, ...wallClock },
+    timeZone
+  )
+}
+
+/**
  * Minutes left before the last-order cutoff, or `null` if orders are not being taken.
  *
  * Feeds the cart's "last orders in X minutes" countdown (design §5), so a customer

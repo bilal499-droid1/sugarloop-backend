@@ -132,6 +132,27 @@ const schema = z.object({
   ORDER_ESCALATION_ADMIN_MINUTES: z.coerce.number().int().positive().default(10),
 
   /**
+   * How long an order may sit in `placed` before the system fails it on the shop's
+   * behalf. 0 switches it off and restores the old behaviour — an order waiting forever.
+   *
+   * 30 minutes sits twenty past the admin chase, so it only ever fires when two people
+   * ignored two messages. The point is not the cancellation; it is that the customer
+   * hears something. Silence for an hour costs a customer permanently, while "nobody
+   * picked this up, you owe nothing, call us and we will make it now" is recoverable.
+   *
+   * Nothing is unwound by it: payment is COD so there is nothing to refund, and stock is
+   * an in/out flag with no reservation, so there is nothing to release.
+   */
+  ORDER_AUTO_CANCEL_MINUTES: z.coerce.number().int().min(0).default(30),
+
+  /**
+   * How often the sweep looks. A minute is fine: the query is covered by the board's own
+   * `{ branchId, status, createdAt }` index, and this decides when a 30-minute deadline
+   * is noticed, not what it is.
+   */
+  ORDER_EXPIRY_SWEEP_SECONDS: z.coerce.number().int().positive().default(60),
+
+  /**
    * Who gets chased when a branch has ignored an order for ten minutes.
    *
    * Configured rather than looked up because a StaffUser has no phone number — the admin

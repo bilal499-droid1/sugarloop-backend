@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { FAILURE_REASON, FULFILMENT, ORDER_STATUS } from '../config/constants.js'
+import {
+  FAILURE_REASON,
+  FULFILMENT,
+  ORDER_STATUS,
+  STAFF_FAILURE_REASONS,
+} from '../config/constants.js'
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id')
 
@@ -55,7 +60,10 @@ export const listOrdersSchema = z.object({
 export const changeStatusSchema = z
   .object({
     status: z.enum(Object.values(ORDER_STATUS)),
-    reason: z.enum(Object.values(FAILURE_REASON)).nullish(),
+    // STAFF_FAILURE_REASONS, not every reason: `not_acknowledged` is the system's verdict
+    // on staff inaction, and a branch that ignored an order must not be able to file it
+    // under "nobody looked at this" itself.
+    reason: z.enum(STAFF_FAILURE_REASONS).nullish(),
     /** Free text for the trail — "customer called, wants it left with the guard". */
     note: z.string().trim().min(1).max(500).nullish(),
   })
@@ -66,7 +74,7 @@ export const changeStatusSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['reason'],
-        message: `Failing an order requires a reason: ${Object.values(FAILURE_REASON).join(', ')}`,
+        message: `Failing an order requires a reason: ${STAFF_FAILURE_REASONS.join(', ')}`,
       })
     }
 

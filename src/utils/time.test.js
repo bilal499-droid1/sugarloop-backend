@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   businessDateStamp,
   businessDayRange,
+  closingAt,
   isOpenAt,
   isAcceptingOrdersAt,
   minuteOfDayInZone,
@@ -256,4 +257,33 @@ test('the same instant is judged by Karachi time, not the server clock', () => {
 
   assert.equal(isOpenAt({ ...SUGARLOOP, at: instant, bufferMinutes: 0, timeZone: KARACHI }), false)
   assert.equal(isOpenAt({ ...SUGARLOOP, at: instant, bufferMinutes: 0, timeZone: 'UTC' }), true)
+})
+
+test('closingAt finds the instant the shop actually shuts', async (t) => {
+  await t.test('mid-evening, the close is the small hours of the NEXT day', () => {
+    assert.equal(
+      closingAt({ ...SUGARLOOP, at: pkt(10, '20:00') }).toISOString(),
+      pkt(11, '03:00').toISOString()
+    )
+  })
+
+  await t.test('in the post-midnight tail, it is this morning', () => {
+    assert.equal(
+      closingAt({ ...SUGARLOOP, at: pkt(11, '01:30') }).toISOString(),
+      pkt(11, '03:00').toISOString()
+    )
+  })
+
+  await t.test('at closing time exactly, the next one is a day away', () => {
+    // Half-open, like isOpenAt: 03:00 is not one more trading minute, so the close being
+    // asked about is tomorrow's.
+    assert.equal(
+      closingAt({ ...SUGARLOOP, at: pkt(11, '03:00') }).toISOString(),
+      pkt(12, '03:00').toISOString()
+    )
+  })
+
+  await t.test('a 24-hour window never closes', () => {
+    assert.equal(closingAt({ open: '00:00', close: '00:00', at: pkt(10, '20:00') }), null)
+  })
 })

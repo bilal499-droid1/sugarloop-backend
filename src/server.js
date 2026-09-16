@@ -9,6 +9,7 @@ import { assertEmailTransportIsProductionSafe } from './services/email.service.j
 import { assertNotifyTransportIsProductionSafe } from './services/notification.service.js'
 import { disconnectRedis } from './config/redis.js'
 import { startOrderEscalation, stopOrderEscalation } from './queues/orderEscalation.js'
+import { startOrderExpiry, stopOrderExpiry } from './queues/orderExpiry.js'
 
 async function start() {
   // Before anything binds a port: the development OTP transport in production would mean
@@ -35,6 +36,10 @@ async function start() {
   // connection that is not up yet. No-ops when REDIS_URL is unset.
   startOrderEscalation()
 
+  // The last rung of the same ladder, and the one that does not need Redis: orders
+  // nobody ever confirms are failed and the customer is told. See queues/orderExpiry.js.
+  startOrderExpiry()
+
   const app = createApp()
   const server = app.listen(env.PORT, () => {
     logger.info(`Sugarloop API listening on port ${env.PORT} [${env.NODE_ENV}]`)
@@ -56,6 +61,7 @@ async function start() {
         // The escalation worker before Redis: it holds a blocking connection, and
         // closing the client under it logs a spurious connection error on every deploy.
         await stopOrderEscalation()
+        stopOrderExpiry()
         await disconnectDatabase()
         await disconnectRedis()
         logger.info('Shutdown complete')

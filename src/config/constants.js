@@ -105,8 +105,31 @@ export const FAILURE_REASON = Object.freeze({
   REFUSED_SUBSTITUTE: 'refused_substitute',
   CUSTOMER_REQUEST: 'customer_request',
   BRANCH_UNABLE: 'branch_unable',
+
+  /**
+   * Nobody at the shop ever acknowledged it, so the system failed it — see
+   * `services/orderExpiry.service.js`.
+   *
+   * Deliberately NOT the same code as `branch_unable`. That one means a human looked at
+   * the order and decided the shop could not make it, which is a legitimate outcome of a
+   * working process. This one means the process did not run: two chases were ignored and
+   * a customer waited for nothing. They need separating in the report, because the count
+   * of these IS the operational number — orders lost by not looking.
+   */
+  NOT_ACKNOWLEDGED: 'not_acknowledged',
+
   OTHER: 'other',
 })
+
+/**
+ * The reasons a human may choose. `not_acknowledged` is the system's own verdict on
+ * staff inaction, so offering it on the fail-reason form would let the branch that
+ * ignored an order file it under "nobody looked at this" — evidence written by the
+ * subject of the evidence.
+ */
+export const STAFF_FAILURE_REASONS = Object.freeze(
+  Object.values(FAILURE_REASON).filter((reason) => reason !== FAILURE_REASON.NOT_ACKNOWLEDGED)
+)
 
 export const PAYMENT_METHOD = Object.freeze({
   COD: 'cod',

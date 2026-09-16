@@ -408,6 +408,34 @@ The admin rung is configured (`ADMIN_ESCALATION_PHONE`) rather than looked up, b
 `StaffUser` carries no phone number. The manager rung uses the **branch** line, which
 rings where the order is being made and reaches whoever is on shift.
 
+### When nobody ever confirms it
+
+The ladder above chases twice and then used to stop, which left the real hole: an order
+nobody acted on sat in `placed` forever, the board kept offering "Mark confirmed", and the
+customer was told nothing. The system's last word on a forgotten order was a message to
+someone who had already ignored one.
+
+At **`ORDER_AUTO_CANCEL_MINUTES`** (default 30, `0` disables) the order is failed with
+`failureReason: not_acknowledged` and the customer is **emailed an apology** — that they
+have not been charged, and the branch number to call if they still want it.
+
+**The cancellation is not the point; the message is.** A customer who waits two hours in
+silence is gone permanently. Failing the order is what makes "nobody picked this up, call
+us and we will make it now" a true sentence. Nothing else unwinds: payment is COD, so
+there is nothing to refund, and stock is an in/out flag with no reservation.
+
+| Decision | Why |
+| --- | --- |
+| Only from `placed` | Leaving `placed` **is** the acknowledgement. Past it, food may be on a counter — a timer must never cancel that. |
+| A sweep, not a queued job | BullMQ needs Redis, and `REDIS_URL` is optional, so a queued version would silently not exist on exactly the box this was written to protect. One indexed query a minute needs nothing, survives a restart, and picks up orders placed before it shipped. |
+| Closing time caps the fuse | A 30-minute fuse lit at 02:55 against an 03:00 close burns down at 03:25 in a dark shop, and the customer finds out in the morning. Whichever comes first wins. |
+| A conditional write, not a lock | A manager confirming at 29:58 and the sweep firing at 30:00 are one race, settled by whichever update matches `status: placed` first. The loser writes nothing. |
+| Its own failure reason | `branch_unable` means a human looked and said no — a working process. `not_acknowledged` means the process did not run. The count of these is the operational number, and staff cannot select it on the fail-reason form. |
+| Email, not WhatsApp | Checkout verifies an email address and `contact.phone` is null on new orders, so email is the channel that actually reaches the customer today. A ninth template, `sugarloop_order_expired`, is sent as well when a number happens to be on file. |
+
+The branch is told nothing extra: the order reappears on their board as failed, with the
+reason, within one 15-second poll, and they already ignored two chases.
+
 ### Invoices and the daily report
 
 **Everything on an invoice comes off the order, never the catalogue.** An order line already
@@ -698,6 +726,7 @@ is how the box goes up before the Meta templates land.
 | Admin product CRUD | ✅ `/staff/products`, audited, discontinue-not-delete |
 | Redis rate limits | ✅ falls back to in-memory without `REDIS_URL` |
 | Unacknowledged-order escalation | ✅ 5 min → branch, 10 min → admin, plus the board's alarm |
+| Auto-cancel of orders nobody confirms | ✅ 30 min → failed as `not_acknowledged`, customer emailed an apology. No Redis needed |
 | PDF invoices | ✅ staff and customer, same gates as the order they print |
 | Daily report | ✅ JSON + PDF, branch-scoped, takings from completed orders |
 | Running sales total | ✅ `/staff/reports/summary` — all-time or a date range |
