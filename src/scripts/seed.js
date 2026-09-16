@@ -43,16 +43,22 @@ const rs = toStoredAmount
  * Google feature ids (`ftid`) as the three above, i.e. the same places, so the coordinates
  * below are confirmed from two independent shares rather than assumed from one.
  *
- * ⚠️ Still not real: the phone number. All four carry the single storefront line the
- * frontend already dials from the cart, because the Branch model requires a number and an
- * invented one would be worse than a shared correct one. Per-branch numbers are still owed.
+ * The phone number is shared by all four on the client's instruction: every branch
+ * carries the storefront line, which is also the WhatsApp sender. Per-branch numbers
+ * would still read better in the templates ("call us on <branch number>"), but a shared
+ * correct number is not a gap — it is the number the shop answers.
  *
  * ⚠️ Geography note — the 2 km radius does NOT cover the gaps between these. See the
  * warning the seed prints, and BACKEND-INPUTS §2.
  */
 
-/** The one published Sugarloop number, from the frontend's cart `tel:` link. */
-const SHARED_PHONE = '+92 51 111 557 799'
+/**
+ * The one published Sugarloop number — the storefront line, which is also the WhatsApp
+ * Business sender. It is what the site already dials from the cart, the checkout and the
+ * footer, so a customer reading a branch's number off an order sees the same one they
+ * would have called anyway.
+ */
+const SHARED_PHONE = '+92 370 4193372'
 
 const branches = [
   {
@@ -422,8 +428,10 @@ async function seed() {
       '"we do not deliver to your area", which is the intended behaviour.'
   )
   logger.warn(
-    'BRANCH PHONE: all four share the storefront line. Per-branch numbers are still owed ' +
-      'and matter — every WhatsApp template ends with "call us on <branch number>".'
+    'BRANCH PHONE: all four carry the storefront line +92 370 4193372, as instructed. ' +
+      'It is also the WhatsApp sender, so every template that ends with ' +
+      '"call us on <branch number>" names a number the shop actually answers. Per-branch ' +
+      'numbers remain a later refinement, not a blocker.'
   )
   logger.warn(
     'BRANCH HOURS: NUST H-12 is seeded with the shared 11:00-03:00 window, UNCONFIRMED. ' +
