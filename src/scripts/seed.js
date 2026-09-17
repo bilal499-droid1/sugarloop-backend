@@ -69,7 +69,6 @@ const branches = [
     location: { type: 'Point', coordinates: [73.0925354, 33.5515545] },
     hours: { open: '16:00', close: '00:00' },
     fulfilment: ['pickup'],
-    isActive: false,
   },
   {
     code: 'DHA2',
@@ -80,8 +79,6 @@ const branches = [
     hours: { open: '16:00', close: '00:00' },
     // The only branch that delivers, for now.
     fulfilment: ['delivery', 'pickup'],
-    // The only branch trading at all, for now.
-    isActive: true,
   },
   {
     // Bahria Town Phase 4, NOT DHA Phase 4 — Marina Commercial and Corniche Road are
@@ -93,7 +90,6 @@ const branches = [
     location: { type: 'Point', coordinates: [73.1233008, 33.5465939] },
     hours: { open: '16:00', close: '00:00' },
     fulfilment: ['pickup'],
-    isActive: false,
   },
   {
     // Not in DHA, and 13-19 km from the other three. Kept in the same list because it is
@@ -106,7 +102,6 @@ const branches = [
     // Daytime, unlike the rest — it trades inside a university building.
     hours: { open: '10:00', close: '18:00' },
     fulfilment: ['pickup'],
-    isActive: false,
   },
 ].map((branch) => ({
   ...branch,
@@ -120,11 +115,7 @@ const branches = [
    * Delivery runs from DHA2 only for now; the other three are collection only. Adding
    * `'delivery'` back to a branch's `fulfilment` is all it takes to open it up.
    *
-   * DHA2 is also the only branch trading at all, for now: the other three carry
-   * `isActive: false`, which hides them from the site and refuses orders against them,
-   * while keeping their details and past orders. Set it back to `true` to reopen one.
-   *
-   * ⚠️ The seed OVERWRITES hours, fulfilment and isActive on every run, including any a manager
+   * ⚠️ The seed OVERWRITES hours and fulfilment on every run, including any a manager
    * changed through the staff console since.
    */
   deliveryRadiusKm: 2,
