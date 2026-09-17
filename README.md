@@ -82,6 +82,7 @@ to start if one is missing — a config mistake should fail on deploy, not at 2a
 | `ENQUIRY_NOTIFY_EMAIL` | where corporate gifting enquiries land |
 | `NOTIFY_TRANSPORT` | order notifications. `log` renders and sends nothing; `whatsapp` needs the Meta account. Refused in production as `log` |
 | `ENQUIRY_NOTIFY_PHONE` | where the WhatsApp copy of an enquiry goes. Empty skips it; the email is unaffected |
+| `META_PIXEL_ID` / `META_CAPI_TOKEN` | **optional.** Server-side Purchase event for Facebook ads. Both or neither; `META_TEST_EVENT_CODE` only while testing |
 | `REDIS_URL` | **optional.** Without it rate limits are per-process and unacknowledged orders are never chased |
 | `ORDER_ESCALATION_MANAGER_MINUTES` / `_ADMIN_MINUTES` | how long an order may sit in `placed`. 5 and 10 |
 | `ADMIN_ESCALATION_PHONE` | the second escalation rung. Falls back to `ENQUIRY_NOTIFY_PHONE` |

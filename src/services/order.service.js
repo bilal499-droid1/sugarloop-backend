@@ -15,6 +15,7 @@ import { FULFILMENT, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from '../con
 import { quote as priceQuote } from './checkout.service.js'
 import { notifyOrderPlaced } from './notification.service.js'
 import { scheduleOrderEscalation } from '../queues/orderEscalation.js'
+import { sendPurchase } from './metaConversions.service.js'
 
 const ORDER_PREFIX = 'SL'
 const SEQUENCE_PAD = 4
@@ -116,9 +117,10 @@ function assertEmailWasVerified(request, verifiedEmail) {
  * Places an order.
  *
  * @param request  validated body — cart, fulfilment, contact, address, expectedTotal
- * @param context  { ip, userAgent, verifiedEmail }. `verifiedEmail` comes from the OTP
- *                 session token, never from the body. ip/userAgent are the fraud trail
- *                 and are never returned to a client.
+ * @param context  { ip, userAgent, verifiedEmail, tracking }. `verifiedEmail` comes from
+ *                 the OTP session token, never from the body. ip/userAgent are the fraud
+ *                 trail and are never returned to a client. `tracking` holds the Meta
+ *                 cookies and page URL, used for the ad conversion and never stored.
  */
 export async function create(
   request,
@@ -210,6 +212,14 @@ export async function create(
   // notification above: the order is already placed, so a queue that is down must not
   // turn a successful checkout into a 500.
   await scheduleOrderEscalation(order)
+
+  // Deliberately not awaited: Meta's latency is no reason to hold a customer's
+  // confirmation screen. `sendPurchase` never rejects.
+  void sendPurchase(
+    order,
+    { ip: context.ip, userAgent: context.userAgent, ...context.tracking },
+    { now }
+  )
 
   return order
 }

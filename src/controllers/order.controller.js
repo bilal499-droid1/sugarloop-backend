@@ -11,12 +11,28 @@ function contextOf(req) {
   return { ip: req.ip ?? '', userAgent: req.get('user-agent') ?? '' }
 }
 
+/**
+ * What Meta needs to match this order to an ad click. `_fbp` and `_fbc` are cookies the
+ * Pixel sets on the shop's own domain, so they arrive with the order request.
+ *
+ * The page URL falls back to the Origin header: helmet sends `Referrer-Policy: no-referrer`
+ * with the shop's HTML, so on this server a Referer is the exception, not the rule.
+ */
+function trackingOf(req) {
+  return {
+    fbp: req.cookies?._fbp ?? '',
+    fbc: req.cookies?._fbc ?? '',
+    sourceUrl: req.get('referer') || req.get('origin') || '',
+  }
+}
+
 export async function create(req, res) {
   // The verified email comes off the token, never off the body — the body is the thing
   // being checked. See order.service.create.
   const order = await orderService.create(req.body, {
     ...contextOf(req),
     verifiedEmail: req.customer.email,
+    tracking: trackingOf(req),
   })
 
   return created(res, { order: orderView.customer(order) })

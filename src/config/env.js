@@ -111,6 +111,33 @@ const schema = z.object({
   ENQUIRY_NOTIFY_PHONE: z.string().default(''),
 
   /**
+   * Meta Conversions API — the server-side copy of the Pixel's Purchase event. See
+   * services/metaConversions.service.js.
+   *
+   * Both optional: with neither set nothing is sent and checkout is unaffected. Setting
+   * only one is refused at boot below, because it can only be a half-finished setup.
+   *
+   * META_PIXEL_ID is the Dataset id from Events Manager, a 15–16 digit number. The token is
+   * generated under that dataset's Settings > Conversions API.
+   */
+  META_PIXEL_ID: z
+    .string()
+    .trim()
+    .regex(/^\d+$/, 'META_PIXEL_ID must be the numeric Dataset id')
+    .optional()
+    .or(z.literal('')),
+  META_CAPI_TOKEN: z.string().trim().optional(),
+
+  /**
+   * From Events Manager > Test events. While set, events show up on that screen and are
+   * NOT used for ad reporting — remove it once testing is done.
+   */
+  META_TEST_EVENT_CODE: z.string().trim().optional(),
+
+  /** Pinned for the same reason as WHATSAPP_API_VERSION. */
+  META_API_VERSION: z.string().default('v23.0'),
+
+  /**
    * Redis, for rate-limit counters and the order-escalation queue. See config/redis.js.
    *
    * Optional so a laptop with no Redis still runs the whole API: the limiters fall back
@@ -311,6 +338,16 @@ if (env.EMAIL_TRANSPORT === 'smtp') {
     )
     process.exit(1)
   }
+}
+
+// One of the two without the other is a setup somebody stopped halfway through. Starting
+// anyway would mean every purchase silently never reaching Meta while the ads run.
+if (Boolean(env.META_PIXEL_ID) !== Boolean(env.META_CAPI_TOKEN)) {
+  const missing = env.META_PIXEL_ID ? 'META_CAPI_TOKEN' : 'META_PIXEL_ID'
+  console.error(
+    `\nRefusing to start: Meta Conversions API is half configured — ${missing} is not set.\n`
+  )
+  process.exit(1)
 }
 
 // OTP now rides the mailer, so `OTP_TRANSPORT=email` with `EMAIL_TRANSPORT=log` is a

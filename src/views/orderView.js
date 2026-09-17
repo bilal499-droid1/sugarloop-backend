@@ -12,6 +12,7 @@
  *   orderView.staff(order)     what the branch working it needs
  */
 import { formatPKR } from '../utils/money.js'
+import { metaEventId } from '../services/metaConversions.service.js'
 
 const money = (amount) => ({ amount, formatted: formatPKR(amount) })
 
@@ -109,6 +110,12 @@ function customer(order) {
 
     /** Set only on a failed order — the customer is owed the reason. */
     failureReason: order.failureReason ?? null,
+
+    /**
+     * The storefront passes this as the Pixel's `eventID` on Purchase. The server sends the
+     * same id to the Conversions API, and the match is how Meta counts the order once.
+     */
+    metaEventId: metaEventId(order),
 
     // Deliberately absent: meta.ip, meta.userAgent, statusHistory with actor ids,
     // customerId, fiscal, distanceKm, and the branch's internal id.
