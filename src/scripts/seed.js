@@ -118,7 +118,11 @@ const branches = [
    * ⚠️ The seed OVERWRITES hours and fulfilment on every run, including any a manager
    * changed through the staff console since.
    */
-  deliveryRadiusKm: 2,
+  // Written explicitly, not left to the model default: that default only applies on
+  // insert, so a branch deactivated by an earlier seed would otherwise stay closed.
+  isActive: true,
+  // Straight-line fallback for when ROUTER is not osrm; matches the 5 km road limit below.
+  deliveryRadiusKm: 5,
   // The rule that replaces the radius when ROUTER=osrm: 5 km, the ceiling the client set
   // on how far a rider is sent. ROAD km, not straight-line, so it means five kilometres
   // of actual riding. No time cap — distance is the rule, and it is the one the refusal
