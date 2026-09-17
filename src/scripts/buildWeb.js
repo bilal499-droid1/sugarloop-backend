@@ -17,10 +17,11 @@
  * `public/` is gitignored. The build is a deploy artefact, and this repository is public
  * — 5.7 MB of binaries per rebuild does not belong in its history.
  */
-import { existsSync, rmSync, cpSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, rmSync, cpSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import dotenv from 'dotenv'
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -45,6 +46,22 @@ const publicDir = path.join(backendRoot, 'public')
  */
 const apiBaseUrl = process.env.VITE_API_BASE_URL ?? '/api/v1'
 
+/**
+ * The storefront's Pixel and this API's Conversions API must report to the same dataset,
+ * or Meta never pairs a browser Purchase with its server copy. So the build reuses this
+ * API's META_PIXEL_ID rather than asking for the id twice.
+ *
+ * Read out of .env on its own, not by loading the whole file: .env also holds NODE_ENV,
+ * and NODE_ENV=development reaching Vite builds the shop on React's development bundle.
+ * An explicit VITE_META_PIXEL_ID in the shell still wins.
+ */
+const envFile = path.join(backendRoot, '.env')
+const metaPixelId =
+  process.env.VITE_META_PIXEL_ID ??
+  process.env.META_PIXEL_ID ??
+  (existsSync(envFile) ? dotenv.parse(readFileSync(envFile)).META_PIXEL_ID : undefined) ??
+  ''
+
 function fail(message) {
   console.error(`\n${message}\n`)
   process.exit(1)
@@ -63,6 +80,7 @@ if (!existsSync(path.join(frontendDir, 'package.json'))) {
 
 console.log(`Building  ${frontendDir}`)
 console.log(`API base  ${apiBaseUrl}`)
+console.log(`Pixel     ${metaPixelId || 'off (no META_PIXEL_ID)'}`)
 
 // `shell: true` so this works on Windows, where npm is a .cmd and Node will not execute
 // one directly. The arguments are ours, not anyone's input.
@@ -70,7 +88,7 @@ const build = spawnSync('npm', ['run', 'build'], {
   cwd: frontendDir,
   stdio: 'inherit',
   shell: true,
-  env: { ...process.env, VITE_API_BASE_URL: apiBaseUrl },
+  env: { ...process.env, VITE_API_BASE_URL: apiBaseUrl, VITE_META_PIXEL_ID: metaPixelId },
 })
 
 if (build.status !== 0) fail('Frontend build failed — nothing was copied.')
