@@ -100,7 +100,7 @@ function assertBranchCanAccept(branch, fulfilment, now) {
     fulfilment === FULFILMENT.DELIVERY &&
     branch.fulfilment.includes(FULFILMENT.PICKUP) &&
     branch.isAcceptingOrdersAt(now, FULFILMENT.PICKUP)
-  // Delivery can start later than the shop opens (DHA 2: collection from 10:00, riders
+  // Delivery can start later than the shop opens (DHA 2: collection from 10:30, riders
   // from 16:00), so "stopped for today" is only true once its window has passed.
   const deliveryStartsLater =
     canStillCollect && branch.startsLaterToday(now, FULFILMENT.DELIVERY)

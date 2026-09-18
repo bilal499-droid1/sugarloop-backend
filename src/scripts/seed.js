@@ -67,7 +67,7 @@ const branches = [
     address: 'H32V+J2F, DHA Phase 1, Islamabad',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.0925354, 33.5515545] },
-    hours: { open: '16:00', close: '00:00' },
+    hours: { open: '10:30', close: '02:00' },
     fulfilment: ['pickup'],
   },
   {
@@ -76,8 +76,8 @@ const branches = [
     address: '1st Floor, Nadir Arcade, Sector E, DHA Phase II, Islamabad',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.1574172, 33.5312498] },
-    // Open for collection from 10:00; riders go out 16:00 to midnight (2026-09-18).
-    hours: { open: '10:00', close: '00:00' },
+    // Open for collection 10:30 to 02:00 like every branch; riders go out 16:00 to midnight.
+    hours: { open: '10:30', close: '02:00' },
     deliveryHours: { open: '16:00', close: '00:00' },
     // The only branch that delivers, for now.
     fulfilment: ['delivery', 'pickup'],
@@ -90,7 +90,7 @@ const branches = [
     address: 'Marina Commercial, Corniche Road, near WeDrink, Bahria Town Phase 4, Islamabad 46220',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.1233008, 33.5465939] },
-    hours: { open: '16:00', close: '00:00' },
+    hours: { open: '10:30', close: '02:00' },
     fulfilment: ['pickup'],
   },
   {
@@ -101,18 +101,17 @@ const branches = [
     address: 'SINES / NSTP Building, NUST, Khyber Road, H-12, Islamabad 44000',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [72.9974445, 33.6461047] },
-    // Daytime, unlike the rest — it trades inside a university building.
-    hours: { open: '10:00', close: '18:00' },
+    // Same collection hours as the rest (2026-09-18), although it trades inside a university building.
+    hours: { open: '10:30', close: '02:00' },
     fulfilment: ['pickup'],
   },
 ].map((branch) => ({
   ...branch,
   phone: SHARED_PHONE,
   /*
-   * Hours and fulfilment are per branch, above, on the client's instruction of 2026-09-17:
-   *   NUST              10:00-18:00
-   *   DHA1, BAH4        16:00-00:00
-   *   DHA2              10:00-00:00 for collection, delivery 16:00-00:00 (2026-09-18)
+   * Hours and fulfilment are per branch, above, on the client's instructions:
+   *   All four          10:30-02:00 for collection (2026-09-18)
+   *   DHA2              delivery 16:00-00:00 as well (2026-09-18)
    * Collection runs until closing; delivery stops 30 minutes before (lastOrderBufferMinutes
    * only applies to delivery — see Branch.lastOrderBufferFor).
    * Delivery runs from DHA2 only for now; the other three are collection only. Adding
@@ -458,7 +457,7 @@ async function seed() {
       'numbers remain a later refinement, not a blocker.'
   )
   logger.info(
-    'BRANCH HOURS: NUST 10:00-18:00; DHA1 and BAH4 16:00-00:00; DHA2 10:00-00:00, delivering 16:00-00:00. Collection until ' +
+    'BRANCH HOURS: all four 10:30-02:00 for collection; DHA2 delivers 16:00-00:00. Collection until ' +
       'close; delivery stops 30 minutes earlier, and runs from DHA2 only for now.'
   )
   logger.warn(

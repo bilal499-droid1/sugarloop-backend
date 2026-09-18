@@ -84,7 +84,7 @@ const branchSchema = new mongoose.Schema(
 
     /**
      * A narrower delivery window inside `hours`, or unset for delivery to follow `hours`.
-     * DHA 2 trades, and takes collection orders, 10:00 → 00:00 but only sends riders out
+     * DHA 2 trades, and takes collection orders, 10:30 → 02:00 but only sends riders out
      * 16:00 → 00:00 (client's instruction, 2026-09-18).
      */
     deliveryHours: {
