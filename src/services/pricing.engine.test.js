@@ -340,6 +340,27 @@ test('delivery stops 30 minutes before closing, collection runs until close', as
   })
 })
 
+test('a branch that delivers later in the day says when, not "stopped for today"', () => {
+  const dha2 = branch({
+    hours: { open: '10:00', close: '00:00' },
+    deliveryHours: { open: '16:00', close: '00:00' },
+  })
+  const at = (hhmm) => new Date(`2026-08-10T${hhmm}:00+05:00`)
+
+  assert.throws(
+    () => price([line('KitKat Crunch', 2)], { branch: dha2, now: at('11:29'), fulfilment: 'delivery' }),
+    (err) =>
+      err.code === 'BRANCH_NOT_ACCEPTING_ORDERS' &&
+      err.details.canStillCollect === true &&
+      err.details.deliveryStartsLater === true &&
+      /delivers from 4:00 pm/.test(err.message)
+  )
+  assert.equal(
+    price([line('KitKat Crunch', 2)], { branch: dha2, now: at('11:29'), fulfilment: 'pickup' }).fulfilment,
+    'pickup'
+  )
+})
+
 test('a manager pause blocks checkout even mid-service', () => {
   assert.throws(
     () => price([line('KitKat Crunch', 2)], { branch: branch({ acceptingOrders: false }) }),

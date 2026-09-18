@@ -32,6 +32,10 @@ export function branchView(branch, { at = new Date() } = {}) {
     location: { lat: latitude, lng: longitude },
 
     hours: { open: branch.hours.open, close: branch.hours.close },
+    /** When riders go out, if narrower than `hours`. Null when delivery follows `hours`. */
+    deliveryHours: branch.deliveryHours?.open
+      ? { open: branch.deliveryHours.open, close: branch.deliveryHours.close }
+      : null,
     deliveryRadiusKm: branch.deliveryRadiusKm,
     fulfilment: branch.fulfilment,
 
@@ -46,8 +50,8 @@ export function branchView(branch, { at = new Date() } = {}) {
     isAcceptingOrders,
 
     /**
-     * The same verdict for delivery alone, which stops lastOrderBufferMinutes before closing
-     * while collection runs to the end. False at a branch that does not deliver.
+     * The same verdict for delivery alone, which runs in its own window (deliveryHours) and
+     * stops lastOrderBufferMinutes before its close. False at a branch that does not deliver.
      */
     isAcceptingDelivery,
 

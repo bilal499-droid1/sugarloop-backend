@@ -91,3 +91,36 @@ test('minutesUntilLastOrder feeds the checkout countdown', () => {
   assert.equal(dha.minutesUntilLastOrder(pkt('02:00'), 'delivery'), 30)
   assert.equal(dha.minutesUntilLastOrder(pkt('02:30'), 'delivery'), null)
 })
+
+test('deliveryHours narrows delivery without closing the shop (DHA 2, 2026-09-18)', () => {
+  const dha2 = branch({
+    hours: { open: '10:00', close: '00:00' },
+    deliveryHours: { open: '16:00', close: '00:00' },
+    fulfilment: ['delivery', 'pickup'],
+  })
+
+  assert.equal(dha2.isOpenAt(pkt('11:29')), true)
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('11:29')), true, 'the picker reads open')
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('11:29'), 'pickup'), true)
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('11:29'), 'delivery'), false)
+  assert.equal(dha2.startsLaterToday(pkt('11:29'), 'delivery'), true)
+  assert.equal(
+    dha2.nextOpeningAt(pkt('11:29'), 'delivery').toISOString(),
+    pkt('16:00').toISOString()
+  )
+
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('16:00'), 'delivery'), true)
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('23:29'), 'delivery'), true)
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('23:31'), 'delivery'), false, 'delivery buffer still applies')
+  assert.equal(dha2.startsLaterToday(pkt('23:31'), 'delivery'), false, 'finished, not starting later')
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('23:59'), 'pickup'), true)
+  assert.equal(dha2.isAcceptingOrdersAt(pkt('09:59')), false)
+
+  assert.equal(dha2.minutesUntilLastOrder(pkt('11:00')), 13 * 60, 'counts down to the collection close')
+})
+
+test('without deliveryHours, delivery follows the trading hours', () => {
+  const dha = branch()
+  assert.deepEqual(dha.hoursFor('delivery'), { open: '11:00', close: '03:00' })
+  assert.equal(dha.deliveryHours, undefined)
+})

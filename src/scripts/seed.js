@@ -76,7 +76,9 @@ const branches = [
     address: '1st Floor, Nadir Arcade, Sector E, DHA Phase II, Islamabad',
     city: 'Islamabad',
     location: { type: 'Point', coordinates: [73.1574172, 33.5312498] },
-    hours: { open: '16:00', close: '00:00' },
+    // Open for collection from 10:00; riders go out 16:00 to midnight (2026-09-18).
+    hours: { open: '10:00', close: '00:00' },
+    deliveryHours: { open: '16:00', close: '00:00' },
     // The only branch that delivers, for now.
     fulfilment: ['delivery', 'pickup'],
   },
@@ -109,7 +111,8 @@ const branches = [
   /*
    * Hours and fulfilment are per branch, above, on the client's instruction of 2026-09-17:
    *   NUST              10:00-18:00
-   *   DHA2, DHA1, BAH4  16:00-00:00
+   *   DHA1, BAH4        16:00-00:00
+   *   DHA2              10:00-00:00 for collection, delivery 16:00-00:00 (2026-09-18)
    * Collection runs until closing; delivery stops 30 minutes before (lastOrderBufferMinutes
    * only applies to delivery — see Branch.lastOrderBufferFor).
    * Delivery runs from DHA2 only for now; the other three are collection only. Adding

@@ -6,7 +6,7 @@ import {
   DEFAULT_LAST_ORDER_BUFFER_MINUTES,
   FULFILMENT,
 } from '../config/constants.js'
-import { isOpenAt, minutesUntilLastOrder, nextOpeningAt } from '../utils/time.js'
+import { closingAt, isOpenAt, minutesUntilLastOrder, nextOpeningAt } from '../utils/time.js'
 
 const TIME_OF_DAY = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -82,6 +82,22 @@ const branchSchema = new mongoose.Schema(
       close: { type: String, required: true, default: '03:00', match: [TIME_OF_DAY, 'close must be HH:MM'] },
     },
 
+    /**
+     * A narrower delivery window inside `hours`, or unset for delivery to follow `hours`.
+     * DHA 2 trades, and takes collection orders, 10:00 → 00:00 but only sends riders out
+     * 16:00 → 00:00 (client's instruction, 2026-09-18).
+     */
+    deliveryHours: {
+      type: new mongoose.Schema(
+        {
+          open: { type: String, required: true, match: [TIME_OF_DAY, 'open must be HH:MM'] },
+          close: { type: String, required: true, match: [TIME_OF_DAY, 'close must be HH:MM'] },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
+
     /** Stop taking orders this long before closing, so the kitchen can finish them. */
     lastOrderBufferMinutes: {
       type: Number,
@@ -154,47 +170,88 @@ branchSchema.methods.lastOrderBufferFor = function lastOrderBufferFor(fulfilment
 }
 
 /**
- * The buffer for `fulfilment`, or — when none is named — the shortest across the modes
- * this branch offers, i.e. "can this branch take ANY order right now". That is what the
- * branch picker's "Open now" means: a shop that has stopped delivering at 23:30 is still
- * taking collection orders until midnight.
+ * The window a fulfilment mode runs in: `deliveryHours` for delivery when the branch has
+ * one, the trading `hours` otherwise.
  */
-function bufferFor(branch, fulfilment) {
-  if (fulfilment) return branch.lastOrderBufferFor(fulfilment)
-  return Math.min(...branch.fulfilment.map((mode) => branch.lastOrderBufferFor(mode)))
+branchSchema.methods.hoursFor = function hoursFor(fulfilment) {
+  if (fulfilment === FULFILMENT.DELIVERY && this.deliveryHours?.open) {
+    return { open: this.deliveryHours.open, close: this.deliveryHours.close }
+  }
+  return { open: this.hours.open, close: this.hours.close }
+}
+
+function isModeOpenAt(branch, date, fulfilment) {
+  if (!branch.isActive) return false
+
+  return isOpenAt({
+    ...branch.hoursFor(fulfilment),
+    at: date,
+    bufferMinutes: branch.lastOrderBufferFor(fulfilment),
+  })
 }
 
 /**
- * Open, far enough from closing for this fulfilment mode (delivery stops
- * `lastOrderBufferMinutes` early, pickup does not), and not paused by the manager
- * mid-rush. The pricing engine calls it with the order's fulfilment.
+ * Inside this fulfilment mode's own window (delivery can start later than the shop opens,
+ * and stops `lastOrderBufferMinutes` before its close; pickup runs the whole trading day),
+ * and not paused by the manager mid-rush. The pricing engine calls it with the order's
+ * fulfilment.
+ *
+ * With no fulfilment named it answers "can this branch take ANY order right now". That is
+ * what the branch picker's "Open now" means: a shop that only delivers from 16:00 is still
+ * taking collection orders at 11:00.
  */
 branchSchema.methods.isAcceptingOrdersAt = function isAcceptingOrdersAtMethod(
   date = new Date(),
   fulfilment = undefined
 ) {
   if (!this.acceptingOrders) return false
-  return this.isOpenAt(date, bufferFor(this, fulfilment))
+  const modes = fulfilment ? [fulfilment] : this.fulfilment
+  return modes.some((mode) => isModeOpenAt(this, date, mode))
 }
 
-/** The next instant this branch opens — what a "Closed, opens at 11am" rejection quotes. */
-branchSchema.methods.nextOpeningAt = function nextOpeningAtMethod(date = new Date()) {
-  return nextOpeningAt({ open: this.hours.open, at: date })
+/**
+ * The next instant this branch opens — what a "Closed, opens at 11am" rejection quotes.
+ * Name a fulfilment to get when THAT mode opens ("delivering from 4pm").
+ */
+branchSchema.methods.nextOpeningAt = function nextOpeningAtMethod(
+  date = new Date(),
+  fulfilment = undefined
+) {
+  return nextOpeningAt({ open: this.hoursFor(fulfilment).open, at: date })
 }
 
-/** Minutes until the last-order cutoff, or null if orders are not being taken. */
+/**
+ * True when `fulfilment` has not started yet but will before the branch shuts tonight:
+ * delivery at 11:00 at a shop that trades from 10:00 and delivers from 16:00.
+ */
+branchSchema.methods.startsLaterToday = function startsLaterToday(date = new Date(), fulfilment) {
+  if (!this.isOpenAt(date)) return false
+  const starts = this.nextOpeningAt(date, fulfilment)
+  const closes = closingAt({ open: this.hours.open, close: this.hours.close, at: date })
+  return closes === null || starts.getTime() < closes.getTime()
+}
+
+/**
+ * Minutes until the last-order cutoff, or null if orders are not being taken. With no
+ * fulfilment named, the longest across the modes open now — the last order of any kind.
+ */
 branchSchema.methods.minutesUntilLastOrder = function minutesUntilLastOrderMethod(
   date = new Date(),
   fulfilment = undefined
 ) {
   if (!this.isActive || !this.acceptingOrders) return null
 
-  return minutesUntilLastOrder({
-    open: this.hours.open,
-    close: this.hours.close,
-    at: date,
-    bufferMinutes: bufferFor(this, fulfilment),
-  })
+  const minutes = (fulfilment ? [fulfilment] : this.fulfilment)
+    .map((mode) =>
+      minutesUntilLastOrder({
+        ...this.hoursFor(mode),
+        at: date,
+        bufferMinutes: this.lastOrderBufferFor(mode),
+      })
+    )
+    .filter((value) => value !== null)
+
+  return minutes.length ? Math.max(...minutes) : null
 }
 
 export const Branch = mongoose.model('Branch', branchSchema)

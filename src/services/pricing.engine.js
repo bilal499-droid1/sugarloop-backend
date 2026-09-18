@@ -100,11 +100,17 @@ function assertBranchCanAccept(branch, fulfilment, now) {
     fulfilment === FULFILMENT.DELIVERY &&
     branch.fulfilment.includes(FULFILMENT.PICKUP) &&
     branch.isAcceptingOrdersAt(now, FULFILMENT.PICKUP)
+  // Delivery can start later than the shop opens (DHA 2: collection from 10:00, riders
+  // from 16:00), so "stopped for today" is only true once its window has passed.
+  const deliveryStartsLater =
+    canStillCollect && branch.startsLaterToday(now, FULFILMENT.DELIVERY)
 
   throw new ApiError(
     409,
     'BRANCH_NOT_ACCEPTING_ORDERS',
-    canStillCollect
+    deliveryStartsLater
+      ? `${branch.name} delivers from ${formatClock(branch.hoursFor(FULFILMENT.DELIVERY).open)} — you can collect your order now`
+      : canStillCollect
       ? `${branch.name} has stopped delivering for today — you can still collect your order until closing`
       : isTrading
         ? `${branch.name} has stopped taking orders for today`
@@ -114,10 +120,22 @@ function assertBranchCanAccept(branch, fulfilment, now) {
       isOpenNow: isTrading,
       /** Delivery has stopped but collection has not — the storefront offers the switch. */
       canStillCollect,
+      /** Delivery has not started yet today but will; `deliveryOpensAt` says when. */
+      deliveryStartsLater,
       opensAt: branch.nextOpeningAt(now),
+      deliveryOpensAt:
+        fulfilment === FULFILMENT.DELIVERY ? branch.nextOpeningAt(now, FULFILMENT.DELIVERY) : null,
       hours: { open: branch.hours.open, close: branch.hours.close },
+      deliveryHours: branch.hoursFor(FULFILMENT.DELIVERY),
     }
   )
+}
+
+/** '16:00' -> '4:00 pm', '00:00' -> '12:00 am'. */
+function formatClock(hhmm) {
+  const [hours, minutes] = hhmm.split(':').map(Number)
+  const suffix = hours < 12 ? 'am' : 'pm'
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${suffix}`
 }
 
 /** A single catalogue item on the cart. */
