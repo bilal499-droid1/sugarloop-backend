@@ -95,6 +95,9 @@ function assertBranchCanAccept(branch, fulfilment, now) {
   // message from "we are open but have stopped taking orders". And delivery stops before
   // collection does, so a late delivery is told collecting still works.
   const isTrading = branch.isOpenAt(now)
+  // The manager's pause switch. Nothing is "over for today" — the kitchen stopped the queue
+  // for a while, and saying "we reopen tomorrow" would turn customers away for the day.
+  const isPaused = isTrading && !branch.acceptingOrders
   const canStillCollect =
     isTrading &&
     fulfilment === FULFILMENT.DELIVERY &&
@@ -108,7 +111,9 @@ function assertBranchCanAccept(branch, fulfilment, now) {
   throw new ApiError(
     409,
     'BRANCH_NOT_ACCEPTING_ORDERS',
-    deliveryStartsLater
+    isPaused
+      ? `${branch.name} has paused online orders for a short while — please try again in a few minutes`
+      : deliveryStartsLater
       ? `${branch.name} delivers from ${formatClock(branch.hoursFor(FULFILMENT.DELIVERY).open)} — you can collect your order now`
       : canStillCollect
       ? `${branch.name} has stopped delivering for today — you can still collect your order until closing`
@@ -118,6 +123,8 @@ function assertBranchCanAccept(branch, fulfilment, now) {
     {
       branchCode: branch.code,
       isOpenNow: isTrading,
+      /** Open, but the manager has paused orders; nothing to quote a reopening time for. */
+      isPaused,
       /** Delivery has stopped but collection has not — the storefront offers the switch. */
       canStillCollect,
       /** Delivery has not started yet today but will; `deliveryOpensAt` says when. */

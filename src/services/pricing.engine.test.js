@@ -364,7 +364,12 @@ test('a branch that delivers later in the day says when, not "stopped for today"
 test('a manager pause blocks checkout even mid-service', () => {
   assert.throws(
     () => price([line('KitKat Crunch', 2)], { branch: branch({ acceptingOrders: false }) }),
-    (err) => err.code === 'BRANCH_NOT_ACCEPTING_ORDERS'
+    (err) =>
+      err.code === 'BRANCH_NOT_ACCEPTING_ORDERS' &&
+      err.details.isPaused === true &&
+      // A pause is minutes, not "come back tomorrow".
+      /paused online orders/.test(err.message) &&
+      !/for today/.test(err.message)
   )
 })
 
