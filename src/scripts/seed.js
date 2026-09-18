@@ -458,7 +458,7 @@ async function seed() {
       'numbers remain a later refinement, not a blocker.'
   )
   logger.info(
-    'BRANCH HOURS: NUST 10:00-18:00; DHA2, DHA1 and BAH4 16:00-00:00. Collection until ' +
+    'BRANCH HOURS: NUST 10:00-18:00; DHA1 and BAH4 16:00-00:00; DHA2 10:00-00:00, delivering 16:00-00:00. Collection until ' +
       'close; delivery stops 30 minutes earlier, and runs from DHA2 only for now.'
   )
   logger.warn(
