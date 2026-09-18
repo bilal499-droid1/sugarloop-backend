@@ -124,3 +124,33 @@ test('without deliveryHours, delivery follows the trading hours', () => {
   assert.deepEqual(dha.hoursFor('delivery'), { open: '11:00', close: '03:00' })
   assert.equal(dha.deliveryHours, undefined)
 })
+
+test('closedDays shuts NUST on Saturday and Sunday, but Friday night runs to 2am', () => {
+  const nust = branch({
+    hours: { open: '10:30', close: '02:00' },
+    closedDays: [6, 0],
+    fulfilment: ['pickup'],
+  })
+  // 2026-09-18 is a Friday.
+  const at = (date, hhmm) => new Date(`2026-09-${date}T${hhmm}:00+05:00`)
+
+  assert.equal(nust.isAcceptingOrdersAt(at(18, '11:00')), true, 'Friday daytime')
+  assert.equal(nust.isAcceptingOrdersAt(at(19, '01:30')), true, "Friday's session past midnight")
+  assert.equal(nust.isAcceptingOrdersAt(at(19, '11:00')), false, 'Saturday')
+  assert.equal(nust.isAcceptingOrdersAt(at(20, '01:00')), false, "Saturday night's tail")
+  assert.equal(nust.isAcceptingOrdersAt(at(20, '15:00')), false, 'Sunday')
+  assert.equal(nust.isAcceptingOrdersAt(at(21, '01:00')), false, "Sunday night's tail, on Monday")
+  assert.equal(nust.isAcceptingOrdersAt(at(21, '10:30')), true, 'Monday opening')
+  assert.equal(nust.minutesUntilLastOrder(at(19, '11:00')), null)
+
+  assert.equal(nust.nextOpeningAt(at(19, '11:00')).toISOString(), at(21, '10:30').toISOString())
+  assert.equal(nust.nextOpeningAt(at(18, '11:00')).toISOString(), at(21, '10:30').toISOString())
+  assert.equal(nust.nextOpeningAt(at(17, '11:00')).toISOString(), at(18, '10:30').toISOString())
+})
+
+test('a branch with no closedDays trades every day', () => {
+  const dha = branch({ hours: { open: '10:30', close: '02:00' } })
+  const saturday = new Date('2026-09-19T11:00:00+05:00')
+  assert.equal(dha.isAcceptingOrdersAt(saturday, 'pickup'), true)
+  assert.deepEqual([...dha.closedDays], [])
+})

@@ -179,6 +179,23 @@ function nowOnWindowLine(at, openMinutes, timeZone) {
   return now < openMinutes ? now + MINUTES_PER_DAY : now
 }
 
+/** Day of the week, 0 = Sunday … 6 = Saturday, of a local calendar date. */
+function weekdayOf({ year, month, day }) {
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+/**
+ * The weekday the window running at `at` OPENED on. 01:00 on Saturday is still Friday's
+ * session when the branch trades 10:30 → 02:00, so a branch closed on Saturdays keeps
+ * serving Friday night past midnight — and does not reopen at 00:00 on Monday for the
+ * tail of a Sunday session that never started.
+ */
+function sessionWeekday(at, openMinutes, timeZone) {
+  const today = zonedParts(at, timeZone)
+  const weekday = weekdayOf(today)
+  return minuteOfDayInZone(at, timeZone) < openMinutes ? (weekday + 6) % 7 : weekday
+}
+
 /**
  * Is the branch trading at `at`, ignoring the last-order cutoff?
  *
@@ -190,6 +207,7 @@ export function isOpenAt({
   close,
   at = new Date(),
   bufferMinutes = 0,
+  closedDays = [],
   timeZone = BUSINESS_TIMEZONE,
 } = {}) {
   const openMinutes = parseTimeOfDay(open)
@@ -199,6 +217,10 @@ export function isOpenAt({
   // A buffer longer than the window leaves nothing orderable. Guard explicitly rather
   // than letting cutoff fall below open and quietly inverting the comparison.
   if (cutoff <= openMinutes) return false
+
+  if (closedDays.length && closedDays.includes(sessionWeekday(at, openMinutes, timeZone))) {
+    return false
+  }
 
   const now = nowOnWindowLine(at, openMinutes, timeZone)
 
@@ -213,9 +235,10 @@ export function isAcceptingOrdersAt({
   close,
   at = new Date(),
   bufferMinutes = 0,
+  closedDays = [],
   timeZone = BUSINESS_TIMEZONE,
 } = {}) {
-  return isOpenAt({ open, close, at, bufferMinutes, timeZone })
+  return isOpenAt({ open, close, at, bufferMinutes, closedDays, timeZone })
 }
 
 /**
@@ -224,32 +247,35 @@ export function isAcceptingOrdersAt({
  * This is what the "Closed — opens at 11am" rejection quotes back. It answers "when can I
  * next order?", so a caller at 02:31 — inside the trading window but past the cutoff —
  * correctly gets today's 11:00 rather than being told it is already open.
+ *
+ * `closedDays` (0 = Sunday … 6 = Saturday) are skipped, so on a Saturday a branch shut at
+ * weekends quotes Monday's opening, not Sunday's.
  */
-export function nextOpeningAt({ open, at = new Date(), timeZone = BUSINESS_TIMEZONE } = {}) {
+export function nextOpeningAt({
+  open,
+  at = new Date(),
+  closedDays = [],
+  timeZone = BUSINESS_TIMEZONE,
+} = {}) {
   const openMinutes = parseTimeOfDay(open)
-  const { year, month, day } = zonedParts(at, timeZone)
+  const wallClock = { hour: Math.floor(openMinutes / 60), minute: openMinutes % 60 }
+  let date = zonedParts(at, timeZone)
 
-  const todaysOpening = instantFromZonedWallClock(
-    { year, month, day, hour: Math.floor(openMinutes / 60), minute: openMinutes % 60 },
-    timeZone
-  )
+  // Eight tries covers today plus a full week; a branch closed every day has no answer,
+  // and gets tomorrow's time rather than an endless loop.
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const opening = instantFromZonedWallClock({ ...date, ...wallClock }, timeZone)
+    if (opening.getTime() > at.getTime() && !closedDays.includes(weekdayOf(date))) {
+      return opening
+    }
 
-  if (todaysOpening.getTime() > at.getTime()) return todaysOpening
+    // Step a day forward in wall-clock terms. Adding 24h to the instant would be wrong
+    // across a DST change; re-reading the calendar date is not.
+    date = zonedParts(new Date(opening.getTime() + MINUTES_PER_DAY * MS_PER_MINUTE), timeZone)
+  }
 
-  // Already past today's opening — step a day forward in wall-clock terms. Adding 24h to
-  // the instant would be wrong across a DST change; re-reading the calendar date is not.
-  const tomorrow = zonedParts(new Date(todaysOpening.getTime() + MINUTES_PER_DAY * MS_PER_MINUTE), timeZone)
-
-  return instantFromZonedWallClock(
-    {
-      year: tomorrow.year,
-      month: tomorrow.month,
-      day: tomorrow.day,
-      hour: Math.floor(openMinutes / 60),
-      minute: openMinutes % 60,
-    },
-    timeZone
-  )
+  const tomorrow = zonedParts(new Date(at.getTime() + MINUTES_PER_DAY * MS_PER_MINUTE), timeZone)
+  return instantFromZonedWallClock({ ...tomorrow, ...wallClock }, timeZone)
 }
 
 /**
@@ -302,9 +328,10 @@ export function minutesUntilLastOrder({
   close,
   at = new Date(),
   bufferMinutes = 0,
+  closedDays = [],
   timeZone = BUSINESS_TIMEZONE,
 } = {}) {
-  if (!isOpenAt({ open, close, at, bufferMinutes, timeZone })) return null
+  if (!isOpenAt({ open, close, at, bufferMinutes, closedDays, timeZone })) return null
 
   const openMinutes = parseTimeOfDay(open)
   const cutoff = straighten(openMinutes, parseTimeOfDay(close)) - bufferMinutes

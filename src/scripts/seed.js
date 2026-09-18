@@ -103,6 +103,8 @@ const branches = [
     location: { type: 'Point', coordinates: [72.9974445, 33.6461047] },
     // Same collection hours as the rest (2026-09-18), although it trades inside a university building.
     hours: { open: '10:30', close: '02:00' },
+    // Shut Saturday and Sunday (0 = Sunday, 6 = Saturday). Friday night still runs to 02:00.
+    closedDays: [6, 0],
     fulfilment: ['pickup'],
   },
 ].map((branch) => ({
@@ -112,6 +114,7 @@ const branches = [
    * Hours and fulfilment are per branch, above, on the client's instructions:
    *   All four          10:30-02:00 for collection (2026-09-18)
    *   DHA2              delivery 16:00-00:00 as well (2026-09-18)
+   *   NUST              closed Saturday and Sunday (2026-09-18)
    * Collection runs until closing; delivery stops 30 minutes before (lastOrderBufferMinutes
    * only applies to delivery — see Branch.lastOrderBufferFor).
    * Delivery runs from DHA2 only for now; the other three are collection only. Adding
@@ -123,6 +126,9 @@ const branches = [
   // Written explicitly, not left to the model default: that default only applies on
   // insert, so a branch deactivated by an earlier seed would otherwise stay closed.
   isActive: true,
+  // Every branch trades seven days unless it says otherwise; written explicitly so a
+  // closed day removed here is removed from the database too.
+  closedDays: branch.closedDays ?? [],
   // Straight-line fallback for when ROUTER is not osrm; matches the 5 km road limit below.
   deliveryRadiusKm: 5,
   // The rule that replaces the radius when ROUTER=osrm: 5 km, the ceiling the client set
@@ -457,7 +463,7 @@ async function seed() {
       'numbers remain a later refinement, not a blocker.'
   )
   logger.info(
-    'BRANCH HOURS: all four 10:30-02:00 for collection; DHA2 delivers 16:00-00:00. Collection until ' +
+    'BRANCH HOURS: all four 10:30-02:00 for collection, NUST closed Saturday and Sunday; DHA2 delivers 16:00-00:00. Collection until ' +
       'close; delivery stops 30 minutes earlier, and runs from DHA2 only for now.'
   )
   logger.warn(

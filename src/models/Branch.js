@@ -98,6 +98,17 @@ const branchSchema = new mongoose.Schema(
       default: undefined,
     },
 
+    /**
+     * Days of the week the branch does not trade at all, 0 = Sunday … 6 = Saturday, in
+     * Asia/Karachi. A session belongs to the day it opens, so a branch shut on Saturdays
+     * still serves Friday night past midnight. NUST closes Saturday and Sunday (client's
+     * instruction, 2026-09-18).
+     */
+    closedDays: {
+      type: [{ type: Number, min: 0, max: 6 }],
+      default: [],
+    },
+
     /** Stop taking orders this long before closing, so the kitchen can finish them. */
     lastOrderBufferMinutes: {
       type: Number,
@@ -155,6 +166,7 @@ branchSchema.methods.isOpenAt = function isOpenAtMethod(date = new Date(), buffe
     close: this.hours.close,
     at: date,
     bufferMinutes,
+    closedDays: this.closedDays,
   })
 }
 
@@ -187,6 +199,7 @@ function isModeOpenAt(branch, date, fulfilment) {
     ...branch.hoursFor(fulfilment),
     at: date,
     bufferMinutes: branch.lastOrderBufferFor(fulfilment),
+    closedDays: branch.closedDays,
   })
 }
 
@@ -217,7 +230,11 @@ branchSchema.methods.nextOpeningAt = function nextOpeningAtMethod(
   date = new Date(),
   fulfilment = undefined
 ) {
-  return nextOpeningAt({ open: this.hoursFor(fulfilment).open, at: date })
+  return nextOpeningAt({
+    open: this.hoursFor(fulfilment).open,
+    at: date,
+    closedDays: this.closedDays,
+  })
 }
 
 /**
@@ -247,6 +264,7 @@ branchSchema.methods.minutesUntilLastOrder = function minutesUntilLastOrderMetho
         ...this.hoursFor(mode),
         at: date,
         bufferMinutes: this.lastOrderBufferFor(mode),
+        closedDays: this.closedDays,
       })
     )
     .filter((value) => value !== null)

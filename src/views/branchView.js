@@ -36,6 +36,8 @@ export function branchView(branch, { at = new Date() } = {}) {
     deliveryHours: branch.deliveryHours?.open
       ? { open: branch.deliveryHours.open, close: branch.deliveryHours.close }
       : null,
+    /** Days the branch does not trade, 0 = Sunday … 6 = Saturday. */
+    closedDays: [...(branch.closedDays ?? [])],
     deliveryRadiusKm: branch.deliveryRadiusKm,
     fulfilment: branch.fulfilment,
 
